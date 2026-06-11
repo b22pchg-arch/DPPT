@@ -2,7 +2,7 @@
 
 const state = {
   headers: [], rawRows: [], rows: [], colMap: {}, model: null, trainingResult: null, forecastRows: [], sampleLoaded: false,
-  sourceFileName: '', delimiter: ',', workbook: null, currentSheet: '', editor: {page: 1, pageSize: 100, query: '', filter: 'all', selected: new Set(), dirty: false}
+  sourceFileName: '', delimiter: ',', workbook: null, currentSheet: '', editor: {page: 1, pageSize: 100, query: '', filter: 'all', selected: new Set(), dirty: false, dateMode: 'all', dateSingle: '', dateMulti: '', dateFrom: '', dateTo: ''}
 };
 
 const $ = id => document.getElementById(id);
@@ -240,7 +240,7 @@ function exportEditedCSV() {
 function exportEditedJSON() {
   if (!state.headers.length) throw new Error('Chưa có dữ liệu để xuất.');
   const payload = {
-    type: 'SCADA_LOAD_DATA_EDITED_LV3',
+    type: 'SCADA_LOAD_DATA_EDITED_LV4',
     exportedAt: new Date().toISOString(),
     sourceFileName: state.sourceFileName,
     headers: state.headers,
@@ -305,9 +305,206 @@ function fmtTime(d) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+
+function fmtDateKey(d) {
+  if (!(d instanceof Date) || isNaN(d)) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function parseDateKey(v) {
+  if (v instanceof Date) return fmtDateKey(v);
+  const s0 = String(v ?? '').trim();
+  if (!s0) return '';
+  let m = s0.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
+  m = s0.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return `${m[3]}-${String(+m[2]).padStart(2,'0')}-${String(+m[1]).padStart(2,'0')}`;
+  const d = parseTime(s0);
+  return d ? fmtDateKey(d) : '';
+}
+
+function getRawDateKey(raw) {
+  const m = readMap();
+  if (!m.time) return '';
+  const d = parseTime(raw[m.time]);
+  return d ? fmtDateKey(d) : '';
+}
+
+function parseDateList(text) {
+  return new Set(String(text || '').split(/[;,\n]+/).map(parseDateKey).filter(Boolean));
+}
+
+function readEditorDateFilterFromUI() {
+  if (!$('dateFilterMode')) return;
+  state.editor.dateMode = $('dateFilterMode').value || 'all';
+  state.editor.dateSingle = $('dateFilterSingle').value || '';
+  state.editor.dateMulti = $('dateFilterMulti').value || '';
+  state.editor.dateFrom = $('dateFilterFrom').value || '';
+  state.editor.dateTo = $('dateFilterTo').value || '';
+}
+
+function editorDateFilterPass(raw) {
+  const mode = state.editor.dateMode || 'all';
+  if (mode === 'all') return true;
+  const key = getRawDateKey(raw);
+  if (!key) return false;
+  if (mode === 'single') return key === parseDateKey(state.editor.dateSingle);
+  if (mode === 'multi') return parseDateList(state.editor.dateMulti).has(key);
+  if (mode === 'range') {
+    const from = parseDateKey(state.editor.dateFrom);
+    const to = parseDateKey(state.editor.dateTo);
+    if (from && key < from) return false;
+    if (to && key > to) return false;
+    return true;
+  }
+  return true;
+}
+
+function dateFromKey(key) {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(+m[1], +m[2]-1, +m[3]) : null;
+}
+
+function parseHolidayRules(text) {
+  const rules = [];
+  const tokens = String(text || '').split(/[;,\n]+/).map(s => s.trim()).filter(Boolean);
+  for (const token of tokens) {
+    const range = token.split(/\.\.|\s+den\s+|\s+đến\s+|\s+to\s+/i).map(s => s.trim());
+    if (range.length === 2) {
+      const a = parseDateKey(range[0]), b = parseDateKey(range[1]);
+      if (a && b) rules.push({type:'range', from: a <= b ? a : b, to: a <= b ? b : a});
+      continue;
+    }
+    const md = token.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+    if (md) { rules.push({type:'monthday', month:+md[2], day:+md[1]}); continue; }
+    const exact = parseDateKey(token);
+    if (exact) { rules.push({type:'exact', date: exact}); continue; }
+  }
+  return rules;
+}
+
+function holidayByRules(dateObj) {
+  if (!(dateObj instanceof Date) || isNaN(dateObj)) return false;
+  const dow = dateObj.getDay();
+  if ($('holidaySat')?.checked && dow === 6) return true;
+  if ($('holidaySun')?.checked && dow === 0) return true;
+  let text = '';
+  if ($('holidayFixed')?.checked) text += '01-01,30-04,01-05,02-09,';
+  text += $('holidayExtraDates')?.value || '';
+  const key = fmtDateKey(dateObj);
+  const month = dateObj.getMonth() + 1;
+  const day = dateObj.getDate();
+  for (const rule of parseHolidayRules(text)) {
+    if (rule.type === 'exact' && rule.date === key) return true;
+    if (rule.type === 'range' && key >= rule.from && key <= rule.to) return true;
+    if (rule.type === 'monthday' && rule.month === month && rule.day === day) return true;
+  }
+  return false;
+}
+
 function formatNum(n, digits=3) {
   return Number.isFinite(n) ? Number(n).toFixed(digits) : '-';
 }
+
+
+
+// ===== LV4.1 FIX: helper functions for Vietnamese headers and quick-fill column list =====
+const COLUMN_KEY_TO_SELECT = {
+  time: 'colTime',
+  p: 'colP',
+  station: 'colStation',
+  temp: 'colTemp',
+  rain: 'colRain',
+  holiday: 'colHoliday',
+  abnormal: 'colAbnormal',
+  outage: 'colOutage',
+  transfer: 'colTransfer'
+};
+
+const VI_HEADER_BY_KEY = {
+  time: 'Thời gian',
+  p: 'Công suất P',
+  station: 'Trạm/Lộ/Khu vực',
+  temp: 'Nhiệt độ',
+  rain: 'Mưa',
+  holiday: 'Ngày nghỉ/lễ',
+  abnormal: 'Bất thường',
+  outage: 'Cắt điện/sự cố',
+  transfer: 'Chuyển tải'
+};
+
+const VI_HEADER_ALIASES = [
+  ['time', ['time','timestamp','datetime','date','ngay gio','thoi gian','ngày giờ','thời gian']],
+  ['p', ['p','p mw','p_mw','mw','load','phu tai','phụ tải','cong suat','công suất','active power']],
+  ['station', ['station','feeder','area','tram','trạm','lo','lộ','xuat tuyen','xuất tuyến','khu vuc','khu vực']],
+  ['temp', ['temperature','temp','tmax','nhiet do','nhiệt độ']],
+  ['rain', ['rain','rainfall','mua','mưa']],
+  ['holiday', ['holiday','nghi','nghỉ','le','lễ','ngay le','ngày lễ','ngay nghi','ngày nghỉ']],
+  ['abnormal', ['abnormal','bat thuong','bất thường','loi du lieu','lỗi dữ liệu']],
+  ['outage', ['outage','fault','cat dien','cắt điện','su co','sự cố']],
+  ['transfer', ['transfer','chuyen tai','chuyển tải','ket luoi','kết lưới']]
+];
+
+function makeUniqueName(base, usedNames) {
+  base = String(base || 'Cột mới').trim() || 'Cột mới';
+  const used = new Set((usedNames || []).map(v => String(v)));
+  if (!used.has(base)) return base;
+  let i = 2;
+  while (used.has(`${base}_${i}`)) i++;
+  return `${base}_${i}`;
+}
+
+function getColumnSelectValues() {
+  const out = {};
+  for (const id of Object.values(COLUMN_KEY_TO_SELECT)) out[id] = $(id)?.value || '';
+  out.quickCustomCol = $('quickCustomCol')?.value || '';
+  return out;
+}
+
+function restoreColumnSelectValues(values) {
+  values = values || {};
+  for (const [id, value] of Object.entries(values)) {
+    const el = $(id);
+    if (!el || value == null) continue;
+    if (el.options && el.options.length) {
+      const ok = [...el.options].some(o => o.value === value);
+      if (ok) el.value = value;
+    } else {
+      el.value = value;
+    }
+  }
+  refreshQuickCustomColumns(values.quickCustomCol);
+}
+
+function headerDisplayName(header) {
+  const raw = String(header || '');
+  const n = norm(raw);
+  for (const [key, aliases] of VI_HEADER_ALIASES) {
+    if (aliases.some(a => n === norm(a))) return VI_HEADER_BY_KEY[key];
+  }
+  return raw;
+}
+
+function refreshQuickCustomColumns(preferredValue=null) {
+  const sel = $('quickCustomCol');
+  if (!sel) return;
+  const oldValue = preferredValue != null ? preferredValue : sel.value;
+  sel.innerHTML = '';
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '-- Không dùng --';
+  sel.appendChild(none);
+  for (const h of state.headers || []) {
+    const opt = document.createElement('option');
+    opt.value = h;
+    opt.textContent = headerDisplayName(h);
+    if (headerDisplayName(h) !== h) opt.textContent += ` (${h})`;
+    sel.appendChild(opt);
+  }
+  if ([...sel.options].some(o => o.value === oldValue)) sel.value = oldValue;
+}
+// ===== END LV4.1 FIX =====
 
 function fillColumnSelects(headers) {
   const ids = ['colTime','colP','colStation','colTemp','colRain','colHoliday','colAbnormal','colOutage','colTransfer'];
@@ -336,7 +533,9 @@ function fillColumnSelects(headers) {
   $('colAbnormal').value = find(['bat thuong','abnormal','loi du lieu']);
   $('colOutage').value = find(['cat dien','su co','outage','fault']);
   $('colTransfer').value = find(['chuyen tai','transfer','ket luoi']);
+  refreshQuickCustomColumns();
 }
+
 
 function readMap() {
   state.colMap = {
@@ -345,6 +544,64 @@ function readMap() {
     abnormal: $('colAbnormal').value, outage: $('colOutage').value, transfer: $('colTransfer').value
   };
   return state.colMap;
+}
+
+
+function ensureMappedColumn(key, preferredHeader=null) {
+  const id = COLUMN_KEY_TO_SELECT[key];
+  if (!id || !$(id)) throw new Error('Không xác định được cột cần tạo: ' + key);
+  let col = $(id).value;
+  if (col && state.headers.includes(col)) return col;
+  const current = getColumnSelectValues();
+  const base = preferredHeader || VI_HEADER_BY_KEY[key] || 'Cột mới';
+  col = makeUniqueName(base, state.headers);
+  state.headers.push(col);
+  state.rawRows.forEach(r => { if (!(col in r)) r[col] = ''; });
+  fillColumnSelects(state.headers);
+  restoreColumnSelectValues(current);
+  $(id).value = col;
+  readMap();
+  refreshQuickCustomColumns();
+  return col;
+}
+
+function vietnamizeHeaders() {
+  if (!state.headers.length) { log('Chưa có dữ liệu để đổi tiêu đề.'); return; }
+  const map = readMap();
+  const desired = {...VI_HEADER_BY_KEY};
+  const renameMap = new Map();
+  for (const [key, oldName] of Object.entries(map)) {
+    if (!oldName || !state.headers.includes(oldName) || !desired[key]) continue;
+    renameMap.set(oldName, desired[key]);
+  }
+  for (const h of state.headers) {
+    const vi = headerDisplayName(h);
+    if (vi && vi !== h && !renameMap.has(h)) renameMap.set(h, vi);
+  }
+  const used = [];
+  const finalNames = state.headers.map(h => {
+    const base = renameMap.get(h) || h;
+    const unique = makeUniqueName(base, used);
+    used.push(unique);
+    return unique;
+  });
+  const oldHeaders = state.headers.slice();
+  state.rawRows = state.rawRows.map(row => {
+    const out = {};
+    oldHeaders.forEach((h, i) => out[finalNames[i]] = row[h] ?? '');
+    return out;
+  });
+  state.headers = finalNames;
+  fillColumnSelects(state.headers);
+  for (const [key, oldName] of Object.entries(map)) {
+    const idx = oldHeaders.indexOf(oldName);
+    const id = COLUMN_KEY_TO_SELECT[key];
+    if (idx >= 0 && id && $(id)) $(id).value = finalNames[idx];
+  }
+  readMap();
+  markEditorDirty(true);
+  renderEditorTable();
+  log('Đã đổi các tiêu đề cột sang tiếng Việt và giữ lại ánh xạ cột hiện có.');
 }
 
 function normalizeRows() {
@@ -662,9 +919,9 @@ function renderTable(rows, headers=null, max=200) {
   if (!rows || !rows.length) { box.innerHTML = '<table><tbody><tr><td>Không có dữ liệu</td></tr></tbody></table>'; return; }
   headers = headers || Object.keys(rows[0]);
   const shown = rows.slice(0, max);
-  let html = '<table><thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  let html = '<table><thead><tr>' + headers.map(h=>`<th title="${escapeHtml(h)}">${escapeHtml(headerDisplayName(h))}</th>`).join('') + '</tr></thead><tbody>';
   shown.forEach(r => {
-    html += '<tr>' + headers.map(h => `<td>${r[h] ?? ''}</td>`).join('') + '</tr>';
+    html += '<tr>' + headers.map(h => `<td>${escapeHtml(r[h] ?? '')}</td>`).join('') + '</tr>';
   });
   html += '</tbody></table>';
   if (rows.length > max) html += `<div class="note" style="padding:8px">Đang hiển thị ${max}/${rows.length} dòng.</div>`;
@@ -694,6 +951,7 @@ function getEditorFilteredIndices() {
       const joined = norm(state.headers.map(h => raw[h]).join(' '));
       if (!joined.includes(q)) continue;
     }
+    if (!editorDateFilterPass(raw)) continue;
     if (filter === 'invalid' && validateRawRow(raw).length === 0) continue;
     if (filter === 'abnormal' && !rawRowIsAbnormal(raw)) continue;
     indices.push(i);
@@ -738,11 +996,13 @@ function renderEditorTable() {
   const start = (state.editor.page - 1) * pageSize;
   const shown = indices.slice(start, start + pageSize);
   const headers = state.headers;
-  let html = '<table class="editorTable"><thead><tr><th>Chọn</th><th>#</th>' + headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr></thead><tbody>';
+  let html = '<table class="editorTable"><thead><tr><th>Chọn</th><th>#</th>' + headers.map(h => `<th title="${escapeHtml(h)}">${escapeHtml(headerDisplayName(h))}</th>`).join('') + '</tr></thead><tbody>';
   for (const idx of shown) {
     const raw = state.rawRows[idx];
-    const invalid = validateRawRow(raw).length ? ' class="invalid"' : '';
-    html += `<tr${invalid}><td><input class="rowSelect" type="checkbox" data-row="${idx}" ${state.editor.selected.has(idx)?'checked':''}></td><td>${idx+1}</td>`;
+    const invalid = validateRawRow(raw).length ? 'invalid' : '';
+    const selectedClass = state.editor.selected.has(idx) ? 'selected' : '';
+    const cls = [invalid, selectedClass].filter(Boolean).join(' ');
+    html += `<tr${cls ? ' class="' + cls + '"' : ''}><td><input class="rowSelect" type="checkbox" data-row="${idx}" ${state.editor.selected.has(idx)?'checked':''}></td><td>${idx+1}</td>`;
     for (const h of headers) {
       html += `<td contenteditable="true" data-row="${idx}" data-col="${escapeHtml(h)}">${escapeHtml(raw[h])}</td>`;
     }
@@ -804,9 +1064,116 @@ function applyEditorEdits() {
   log('Đã áp dụng thay đổi bảng vào dữ liệu chuẩn hóa.');
 }
 
+
+function getCurrentPageEditorIndices() {
+  const indices = getEditorFilteredIndices();
+  const pageSize = Math.max(10, Math.floor(parseNumber($('editorPageSize')?.value) || state.editor.pageSize || 100));
+  const totalPages = Math.max(1, Math.ceil(indices.length / pageSize));
+  const page = Math.min(Math.max(1, Math.floor(parseNumber($('editorPage')?.value) || state.editor.page || 1)), totalPages);
+  const start = (page - 1) * pageSize;
+  return indices.slice(start, start + pageSize);
+}
+
+function selectVisibleEditorRows() {
+  for (const idx of getCurrentPageEditorIndices()) state.editor.selected.add(idx);
+  renderEditorTable();
+  log(`Đã chọn ${getCurrentPageEditorIndices().length} dòng đang hiển thị.`);
+}
+
+function selectFilteredEditorRows() {
+  const indices = getEditorFilteredIndices();
+  for (const idx of indices) state.editor.selected.add(idx);
+  renderEditorTable();
+  log(`Đã chọn ${indices.length} dòng sau bộ lọc hiện tại.`);
+}
+
+function clearEditorSelection() {
+  state.editor.selected.clear();
+  renderEditorTable();
+  log('Đã bỏ chọn tất cả dòng.');
+}
+
+function resetDateFilter() {
+  state.editor.dateMode = 'all'; state.editor.dateSingle = ''; state.editor.dateMulti = ''; state.editor.dateFrom = ''; state.editor.dateTo = '';
+  if ($('dateFilterMode')) $('dateFilterMode').value = 'all';
+  if ($('dateFilterSingle')) $('dateFilterSingle').value = '';
+  if ($('dateFilterMulti')) $('dateFilterMulti').value = '';
+  if ($('dateFilterFrom')) $('dateFilterFrom').value = '';
+  if ($('dateFilterTo')) $('dateFilterTo').value = '';
+  state.editor.page = 1; $('editorPage').value = 1;
+  renderEditorTable();
+  log('Đã bỏ bộ lọc ngày.');
+}
+
+function selectedEditorIndicesOrLog() {
+  const arr = [...state.editor.selected].filter(i => i >= 0 && i < state.rawRows.length).sort((a,b)=>a-b);
+  if (!arr.length) log('Chưa chọn dòng. Có thể dùng nút “Chọn tất cả dòng đang hiển thị” hoặc “Chọn tất cả dòng sau lọc ngày”.');
+  return arr;
+}
+
+function applyQuickFillToSelected() {
+  const indices = selectedEditorIndicesOrLog();
+  if (!indices.length) return;
+  const tempVal = $('quickTemp')?.value.trim() ?? '';
+  const rainVal = $('quickRain')?.value ?? '';
+  const holidayVal = $('quickHoliday')?.value ?? '';
+  const abnormalVal = $('quickAbnormal')?.value ?? '';
+  const outageVal = $('quickOutage')?.value ?? '';
+  const transferVal = $('quickTransfer')?.value ?? '';
+  const stationVal = $('quickStation')?.value.trim() ?? '';
+  const customCol = $('quickCustomCol')?.value ?? '';
+  const customVal = $('quickCustomValue')?.value ?? '';
+  let changed = 0;
+  const setKey = (idx, key, value) => {
+    const col = ensureMappedColumn(key);
+    state.rawRows[idx][col] = value;
+    changed++;
+  };
+  for (const idx of indices) {
+    const raw = state.rawRows[idx];
+    if (!raw) continue;
+    if (tempVal !== '') setKey(idx, 'temp', tempVal);
+    if (rainVal !== '') setKey(idx, 'rain', rainVal);
+    if (holidayVal !== '') {
+      if (holidayVal === 'auto') {
+        const key = getRawDateKey(raw);
+        const d = dateFromKey(key);
+        setKey(idx, 'holiday', holidayByRules(d) ? '1' : '0');
+      } else setKey(idx, 'holiday', holidayVal);
+    }
+    if (abnormalVal !== '') setKey(idx, 'abnormal', abnormalVal);
+    if (outageVal !== '') setKey(idx, 'outage', outageVal);
+    if (transferVal !== '') setKey(idx, 'transfer', transferVal);
+    if (stationVal !== '') setKey(idx, 'station', stationVal);
+    if (customCol && customVal !== '') { raw[customCol] = customVal; changed++; }
+  }
+  if (!changed) { log('Chưa nhập giá trị nào để điền nhanh.'); return; }
+  markEditorDirty(true);
+  renderEditorTable();
+  log(`Đã điền nhanh ${changed} ô cho ${indices.length} dòng đã chọn.`);
+}
+
+function autoHolidayForIndices(indices) {
+  if (!indices.length) { log('Không có dòng nào để tự nhận dạng ngày nghỉ/lễ.'); return; }
+  const col = ensureMappedColumn('holiday');
+  const clearNonMatch = $('holidayClearNonMatch')?.checked ?? true;
+  let one = 0, zero = 0, skipped = 0;
+  for (const idx of indices) {
+    const raw = state.rawRows[idx];
+    const key = getRawDateKey(raw);
+    const d = dateFromKey(key);
+    if (!d) { skipped++; continue; }
+    if (holidayByRules(d)) { raw[col] = '1'; one++; }
+    else if (clearNonMatch) { raw[col] = '0'; zero++; }
+  }
+  markEditorDirty(true);
+  renderEditorTable();
+  log(`Đã tự nhận dạng ngày nghỉ/lễ: ${one} dòng = 1, ${zero} dòng = 0, bỏ qua ${skipped} dòng lỗi ngày.`);
+}
+
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('SCADA_LOAD_FORECAST_LV3_DB', 1);
+    const req = indexedDB.open('SCADA_LOAD_FORECAST_LV4_DB', 1);
     req.onupgradeneeded = () => req.result.createObjectStore('kv');
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -834,17 +1201,17 @@ async function idbGet(key) {
 }
 
 function saveSettingsToLocal() {
-  try { localStorage.setItem('SCADA_LOAD_FORECAST_LV3_SETTINGS', JSON.stringify({colMap: state.colMap, sourceFileName: state.sourceFileName})); } catch(_) {}
+  try { localStorage.setItem('SCADA_LOAD_FORECAST_LV4_SETTINGS', JSON.stringify({colMap: state.colMap, sourceFileName: state.sourceFileName})); } catch(_) {}
 }
 
 function loadSettingsFromLocal() {
-  try { return JSON.parse(localStorage.getItem('SCADA_LOAD_FORECAST_LV3_SETTINGS') || '{}'); } catch(_) { return {}; }
+  try { return JSON.parse(localStorage.getItem('SCADA_LOAD_FORECAST_LV4_SETTINGS') || '{}'); } catch(_) { return {}; }
 }
 
 async function saveDatasetOffline() {
   if (!state.headers.length) throw new Error('Chưa có dữ liệu để lưu.');
   const payload = {
-    type: 'SCADA_LOAD_DATA_OFFLINE_LV3', savedAt: new Date().toISOString(), sourceFileName: state.sourceFileName,
+    type: 'SCADA_LOAD_DATA_OFFLINE_LV4', savedAt: new Date().toISOString(), sourceFileName: state.sourceFileName,
     headers: state.headers, rawRows: state.rawRows, colMap: readMap(), delimiter: state.delimiter
   };
   await idbSet('currentDataset', payload);
@@ -1045,6 +1412,17 @@ $('loadSampleBtn').addEventListener('click', () => {
 
 $('editorSearch').addEventListener('input', e => { state.editor.query = e.target.value; state.editor.page = 1; renderEditorTable(); });
 $('editorFilter').addEventListener('change', e => { state.editor.filter = e.target.value; state.editor.page = 1; renderEditorTable(); });
+['dateFilterMode','dateFilterSingle','dateFilterMulti','dateFilterFrom','dateFilterTo'].forEach(id => {
+  if ($(id)) $(id).addEventListener(id === 'dateFilterMulti' ? 'input' : 'change', () => { readEditorDateFilterFromUI(); state.editor.page = 1; $('editorPage').value = 1; renderEditorTable(); });
+});
+$('resetDateFilterBtn')?.addEventListener('click', resetDateFilter);
+$('selectVisibleRowsBtn')?.addEventListener('click', selectVisibleEditorRows);
+$('selectFilteredRowsBtn')?.addEventListener('click', selectFilteredEditorRows);
+$('clearSelectedRowsBtn')?.addEventListener('click', clearEditorSelection);
+$('vietnamizeHeadersBtn')?.addEventListener('click', vietnamizeHeaders);
+$('quickFillSelectedBtn')?.addEventListener('click', () => { try { applyQuickFillToSelected(); } catch(e) { log('Lỗi điền nhanh: ' + e.message); } });
+$('autoHolidaySelectedBtn')?.addEventListener('click', () => { try { autoHolidayForIndices(selectedEditorIndicesOrLog()); } catch(e) { log('Lỗi tự nhận dạng ngày nghỉ/lễ: ' + e.message); } });
+$('autoHolidayFilteredBtn')?.addEventListener('click', () => { try { autoHolidayForIndices(getEditorFilteredIndices()); } catch(e) { log('Lỗi tự nhận dạng ngày nghỉ/lễ: ' + e.message); } });
 $('editorPageSize').addEventListener('change', e => { state.editor.pageSize = parseNumber(e.target.value) || 100; state.editor.page = 1; renderEditorTable(); });
 $('editorPage').addEventListener('change', e => { state.editor.page = parseNumber(e.target.value) || 1; renderEditorTable(); });
 $('editorPrevBtn').addEventListener('click', () => { state.editor.page = Math.max(1, state.editor.page - 1); $('editorPage').value = state.editor.page; renderEditorTable(); });
@@ -1069,8 +1447,9 @@ $('editorBox').addEventListener('change', e => {
   const row = Number(cb.dataset.row);
   if (cb.checked) state.editor.selected.add(row); else state.editor.selected.delete(row);
   renderEditorStatus();
+  const tr = cb.closest('tr'); if (tr) tr.classList.toggle('selected', cb.checked);
 });
 
 fillColumnSelects([]);
 renderEditorTable();
-log('Sẵn sàng LV3. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON, hiệu chỉnh nếu cần, rồi huấn luyện hoặc nạp model.');
+log('Sẵn sàng LV4. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON. Có thể lọc theo ngày, chọn nhiều dòng, điền nhanh nhiệt độ/cờ vận hành rồi huấn luyện hoặc nạp model.');

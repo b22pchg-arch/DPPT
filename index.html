@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <title>SCADA Load Forecast Offline PWA LV3</title>
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="LoadForecast" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>SCADA Load Forecast Offline PWA LV4.1</title>
   <style>
     :root{
       --bg:#0b1220;--panel:#111c2f;--panel2:#16243b;--text:#e5edf7;--muted:#9fb0c6;
@@ -34,19 +40,19 @@
     .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:440px;background:#081426}
     table{border-collapse:collapse;width:100%;font-size:12px;min-width:800px} th,td{border-bottom:1px solid #21334e;padding:7px 8px;text-align:right;white-space:nowrap}
     th{position:sticky;top:0;background:#13243a;color:#dbeafe;z-index:1} td:first-child,th:first-child{text-align:left}
-    .editorTable th,.editorTable td{text-align:left}.editorTable td[contenteditable="true"]{background:var(--edit);outline:none;min-width:96px}.editorTable td[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--accent);background:#0a2238}.editorTable tr.invalid td{background:#2a1111}.editorTable .rowSelect{width:auto;transform:scale(1.1)}
+    .editorTable th,.editorTable td{text-align:left}.editorTable td[contenteditable="true"]{background:var(--edit);outline:none;min-width:96px}.editorTable td[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--accent);background:#0a2238}.editorTable tr.invalid td{background:#2a1111}.editorTable tr.selected td{box-shadow:inset 0 0 0 9999px rgba(56,189,248,.08)}.editorTable .rowSelect{width:auto;transform:scale(1.1)}
     .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px;margin-top:4px}.metric span{color:var(--muted);font-size:12px}
     canvas{width:100%;height:320px;background:#071120;border:1px solid var(--line);border-radius:12px}
     details{background:#0c1829;border:1px solid var(--line);border-radius:12px;padding:10px} summary{cursor:pointer;font-weight:700;color:#dbeafe}
     .note{font-size:13px;color:var(--muted)} .okText{color:var(--ok)} .warnText{color:var(--warn)} .badText{color:var(--bad)}
-    .toolbar{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end}.toolbar>.span2{grid-column:span 2}.toolbar>.span3{grid-column:span 3}.toolbar>.span4{grid-column:span 4}.toolbar>.span6{grid-column:span 6}
-    @media(max-width:900px){.grid,.toolbar{grid-template-columns:1fr}.span3,.span4,.span5,.span6,.span7,.span8,.span9,.span12,.toolbar>.span2,.toolbar>.span3,.toolbar>.span4,.toolbar>.span6{grid-column:span 1}.metrics{grid-template-columns:repeat(2,1fr)}header{padding:14px}main{padding:10px}table{font-size:11px}}
+    .toolbar{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end}.toolbar>.span1{grid-column:span 1}.toolbar>.span2{grid-column:span 2}.toolbar>.span3{grid-column:span 3}.toolbar>.span4{grid-column:span 4}.toolbar>.span6{grid-column:span 6}.toolbar>.span8{grid-column:span 8}.toolPanel{margin-top:10px;background:#0c1829;border:1px solid var(--line);border-radius:12px;padding:10px}.compactNote{font-size:12px;color:var(--muted);margin-top:4px}
+    @media(max-width:900px){.grid,.toolbar{grid-template-columns:1fr}.span3,.span4,.span5,.span6,.span7,.span8,.span9,.span12,.toolbar>.span1,.toolbar>.span2,.toolbar>.span3,.toolbar>.span4,.toolbar>.span6,.toolbar>.span8{grid-column:span 1}.metrics{grid-template-columns:repeat(2,1fr)}header{padding:14px}main{padding:10px}table{font-size:11px}}
   </style>
 </head>
 <body>
 <header>
-  <h1>SCADA Load Forecast Offline PWA LV3</h1>
-  <div class="sub">LV3: đọc trực tiếp CSV/TXT/TSV/JSON và Excel <b>.xlsx/.xlsm</b> bằng bộ đọc kiểu SheetJS nhúng nội bộ, sửa dữ liệu trực tiếp, lưu offline hoặc xuất lại file đã hiệu chỉnh, huấn luyện/xuất <b>model_gbdt.json</b>. Không CDN, không server ngoài, không pwa.js.</div>
+  <h1>SCADA Load Forecast Offline PWA LV4.1</h1>
+  <div class="sub">LV4.1: sửa lỗi bảng không nạp dữ liệu sau khi bổ sung icon; giữ các chức năng LV4: thêm bộ lọc hiệu chỉnh theo <b>ngày / nhiều ngày / khoảng ngày</b>, điền nhanh nhiệt độ và các cờ vận hành cho dòng được chọn, tự nhận dạng ngày nghỉ/lễ theo quy tắc offline, Việt hóa tiêu đề bảng. Vẫn đọc Excel .xlsx/.xlsm, huấn luyện/xuất <b>model_gbdt.json</b>. Không CDN, không server ngoài, không pwa.js.</div>
 </header>
 <main>
   <section class="grid">
@@ -54,7 +60,7 @@
       <h2>1) Nạp dữ liệu từ file</h2>
       <label>File dữ liệu phụ tải</label>
       <input id="csvFile" type="file" accept=".csv,.txt,.tsv,.json,.xlsx,.xlsm,.xls" />
-      <div class="note">LV3 hỗ trợ CSV/TXT/TSV/JSON và Excel .xlsx/.xlsm trực tiếp offline. File .xls nhị phân cũ cần thư viện SheetJS chính thức xlsx.full.min.js; nếu chưa có, hãy lưu lại thành .xlsx hoặc CSV UTF-8.</div>
+      <div class="note">LV4 hỗ trợ CSV/TXT/TSV/JSON và Excel .xlsx/.xlsm trực tiếp offline. File .xls nhị phân cũ cần thư viện SheetJS chính thức xlsx.full.min.js; nếu chưa có, hãy lưu lại thành .xlsx hoặc CSV UTF-8.</div>
       <div id="dataInfo" style="margin-top:10px"></div>
       <label id="sheetLabel" style="display:none">Sheet Excel</label>
       <select id="sheetSelect" style="display:none"></select>
@@ -97,6 +103,57 @@
         <div class="span2"><label>Trang</label><input id="editorPage" type="number" min="1" value="1" /></div>
         <div class="span3"><label>Trạng thái</label><div id="editorStatus"><span class="pill">Chưa có dữ liệu</span></div></div>
       </div>
+
+      <div class="toolPanel">
+        <h3>Chọn theo ngày để hiệu chỉnh</h3>
+        <div class="toolbar">
+          <div class="span2"><label>Kiểu chọn ngày</label><select id="dateFilterMode"><option value="all">Tất cả ngày</option><option value="single">Một ngày</option><option value="multi">Nhiều ngày</option><option value="range">Từ ngày đến ngày</option></select></div>
+          <div class="span2"><label>Một ngày</label><input id="dateFilterSingle" type="date"></div>
+          <div class="span3"><label>Nhiều ngày</label><input id="dateFilterMulti" placeholder="2026-06-10, 11/06/2026, 12-06-2026"></div>
+          <div class="span2"><label>Từ ngày</label><input id="dateFilterFrom" type="date"></div>
+          <div class="span2"><label>Đến ngày</label><input id="dateFilterTo" type="date"></div>
+          <div class="span1"><label>&nbsp;</label><button class="secondary" id="resetDateFilterBtn">Bỏ lọc</button></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="secondary" id="selectVisibleRowsBtn">Chọn tất cả dòng đang hiển thị</button>
+          <button class="secondary" id="selectFilteredRowsBtn">Chọn tất cả dòng sau lọc ngày</button>
+          <button class="secondary" id="clearSelectedRowsBtn">Bỏ chọn tất cả</button>
+          <button class="secondary" id="vietnamizeHeadersBtn">Đổi tiêu đề cột sang tiếng Việt</button>
+        </div>
+        <div class="compactNote">Bộ lọc ngày chỉ giới hạn bảng hiệu chỉnh. Dữ liệu gốc vẫn còn đầy đủ để huấn luyện/dự báo.</div>
+      </div>
+
+      <div class="toolPanel">
+        <h3>Điền nhanh cho các dòng được chọn</h3>
+        <div class="toolbar">
+          <div class="span2"><label>Nhiệt độ</label><input id="quickTemp" placeholder="VD: 36.5"></div>
+          <div class="span2"><label>Mưa</label><select id="quickRain"><option value="">Giữ nguyên</option><option value="0">Không mưa / 0</option><option value="1">Có mưa / 1</option></select></div>
+          <div class="span2"><label>Ngày nghỉ/lễ</label><select id="quickHoliday"><option value="">Giữ nguyên</option><option value="auto">Tự nhận dạng</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span2"><label>Bất thường</label><select id="quickAbnormal"><option value="">Giữ nguyên</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span2"><label>Cắt điện/sự cố</label><select id="quickOutage"><option value="">Giữ nguyên</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span2"><label>Chuyển tải</label><select id="quickTransfer"><option value="">Giữ nguyên</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span3"><label>Trạm/Lộ nếu cần</label><input id="quickStation" placeholder="để trống = giữ nguyên"></div>
+          <div class="span3"><label>Cột tùy chọn</label><select id="quickCustomCol"><option value="">-- Không dùng --</option></select></div>
+          <div class="span3"><label>Giá trị tùy chọn</label><input id="quickCustomValue" placeholder="giá trị muốn điền"></div>
+          <div class="span3"><label>&nbsp;</label><button class="warn" id="quickFillSelectedBtn">Điền nhanh vào dòng đã chọn</button></div>
+        </div>
+        <details style="margin-top:10px">
+          <summary>Quy tắc tự nhận dạng ngày nghỉ/lễ offline</summary>
+          <div class="toolbar" style="margin-top:8px">
+            <div class="span2"><label><input id="holidaySat" type="checkbox" checked style="width:auto"> Thứ Bảy</label></div>
+            <div class="span2"><label><input id="holidaySun" type="checkbox" checked style="width:auto"> Chủ Nhật</label></div>
+            <div class="span3"><label><input id="holidayFixed" type="checkbox" checked style="width:auto"> Lễ dương cố định</label><div class="compactNote">01-01, 30-04, 01-05, 02-09</div></div>
+            <div class="span3"><label>Ngày/khoảng nghỉ bổ sung</label><input id="holidayExtraDates" placeholder="VD: 2026-02-16..2026-02-20, 2026-04-18"></div>
+            <div class="span2"><label><input id="holidayClearNonMatch" type="checkbox" checked style="width:auto"> Không khớp đặt 0</label></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="secondary" id="autoHolidaySelectedBtn">Tự nhận dạng cho dòng đã chọn</button>
+            <button class="secondary" id="autoHolidayFilteredBtn">Tự nhận dạng cho toàn bộ dòng sau lọc</button>
+          </div>
+          <div class="compactNote">Ngày âm lịch, nghỉ bù hoặc lịch riêng của đơn vị nên nhập vào ô bổ sung theo dạng YYYY-MM-DD hoặc khoảng YYYY-MM-DD..YYYY-MM-DD.</div>
+        </details>
+      </div>
+
       <div class="row" style="margin-top:10px">
         <button class="secondary" id="editorPrevBtn">← Trang trước</button>
         <button class="secondary" id="editorNextBtn">Trang sau →</button>
