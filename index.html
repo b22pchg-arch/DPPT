@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>SCADA Load Forecast Offline PWA LV4</title>
+  <style>
+    :root{
+      --bg:#0b1220;--panel:#111c2f;--panel2:#16243b;--text:#e5edf7;--muted:#9fb0c6;
+      --line:#2b3c57;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--accent:#38bdf8;
+      --btn:#1d4ed8;--btn2:#334155;--input:#071120;--edit:#0e1b2e;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+    header{padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0f172a,#132238)}
+    h1{font-size:20px;margin:0 0 6px} h2{font-size:17px;margin:0 0 12px} h3{font-size:15px;margin:14px 0 8px}
+    .sub{color:var(--muted);font-size:13px}
+    main{max-width:1380px;margin:0 auto;padding:14px;display:grid;gap:14px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+    .span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}.span6{grid-column:span 6}.span7{grid-column:span 7}.span8{grid-column:span 8}.span9{grid-column:span 9}.span12{grid-column:span 12}
+    label{display:block;color:var(--muted);font-size:12px;margin:8px 0 4px}
+    input,select,textarea{width:100%;background:var(--input);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:14px}
+    input[type=file]{padding:8px;background:#0a1628}
+    button{border:0;border-radius:10px;padding:10px 12px;background:var(--btn);color:white;font-weight:700;cursor:pointer;min-height:40px}
+    button.secondary{background:var(--btn2)} button.good{background:#15803d} button.warn{background:#b45309} button.bad{background:#b91c1c}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>button{flex:1 1 160px}.row>div{flex:1 1 150px}
+    .pill{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:4px 8px;color:var(--muted);font-size:12px;margin:2px 4px 2px 0;background:var(--panel2)}
+    .pill.ok{border-color:#14532d;color:#86efac;background:#062315}.pill.warn{border-color:#92400e;color:#fbbf24;background:#261707}.pill.bad{border-color:#7f1d1d;color:#fecaca;background:#2a0b0b}
+    .log{height:190px;overflow:auto;background:#06101e;border:1px solid var(--line);border-radius:12px;padding:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre-wrap;color:#cbd5e1}
+    .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:440px;background:#081426}
+    table{border-collapse:collapse;width:100%;font-size:12px;min-width:800px} th,td{border-bottom:1px solid #21334e;padding:7px 8px;text-align:right;white-space:nowrap}
+    th{position:sticky;top:0;background:#13243a;color:#dbeafe;z-index:1} td:first-child,th:first-child{text-align:left}
+    .editorTable th,.editorTable td{text-align:left}.editorTable td[contenteditable="true"]{background:var(--edit);outline:none;min-width:96px}.editorTable td[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--accent);background:#0a2238}.editorTable tr.invalid td{background:#2a1111}.editorTable tr.selected td{box-shadow:inset 0 0 0 9999px rgba(56,189,248,.08)}.editorTable .rowSelect{width:auto;transform:scale(1.1)}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px;margin-top:4px}.metric span{color:var(--muted);font-size:12px}
+    canvas{width:100%;height:320px;background:#071120;border:1px solid var(--line);border-radius:12px}
+    details{background:#0c1829;border:1px solid var(--line);border-radius:12px;padding:10px} summary{cursor:pointer;font-weight:700;color:#dbeafe}
+    .note{font-size:13px;color:var(--muted)} .okText{color:var(--ok)} .warnText{color:var(--warn)} .badText{color:var(--bad)}
+    .toolbar{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end}.toolbar>.span1{grid-column:span 1}.toolbar>.span2{grid-column:span 2}.toolbar>.span3{grid-column:span 3}.toolbar>.span4{grid-column:span 4}.toolbar>.span6{grid-column:span 6}.toolbar>.span8{grid-column:span 8}.toolPanel{margin-top:10px;background:#0c1829;border:1px solid var(--line);border-radius:12px;padding:10px}.compactNote{font-size:12px;color:var(--muted);margin-top:4px}
+    @media(max-width:900px){.grid,.toolbar{grid-template-columns:1fr}.span3,.span4,.span5,.span6,.span7,.span8,.span9,.span12,.toolbar>.span1,.toolbar>.span2,.toolbar>.span3,.toolbar>.span4,.toolbar>.span6,.toolbar>.span8{grid-column:span 1}.metrics{grid-template-columns:repeat(2,1fr)}header{padding:14px}main{padding:10px}table{font-size:11px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>SCADA Load Forecast Offline PWA LV4</h1>
+  <div class="sub">LV4: thêm bộ lọc hiệu chỉnh theo <b>ngày / nhiều ngày / khoảng ngày</b>, điền nhanh nhiệt độ và các cờ vận hành cho dòng được chọn, tự nhận dạng ngày nghỉ/lễ theo quy tắc offline, Việt hóa tiêu đề bảng. Vẫn đọc Excel .xlsx/.xlsm, huấn luyện/xuất <b>model_gbdt.json</b>. Không CDN, không server ngoài, không pwa.js.</div>
+</header>
+<main>
+  <section class="grid">
+    <div class="card span4">
+      <h2>1) Nạp dữ liệu từ file</h2>
+      <label>File dữ liệu phụ tải</label>
+      <input id="csvFile" type="file" accept=".csv,.txt,.tsv,.json,.xlsx,.xlsm,.xls" />
+      <div class="note">LV3 hỗ trợ CSV/TXT/TSV/JSON và Excel .xlsx/.xlsm trực tiếp offline. File .xls nhị phân cũ cần thư viện SheetJS chính thức xlsx.full.min.js; nếu chưa có, hãy lưu lại thành .xlsx hoặc CSV UTF-8.</div>
+      <div id="dataInfo" style="margin-top:10px"></div>
+      <label id="sheetLabel" style="display:none">Sheet Excel</label>
+      <select id="sheetSelect" style="display:none"></select>
+      <div id="sheetInfo" class="note" style="margin-top:6px"></div>
+      <label>Chọn trạm / lộ / khu vực</label>
+      <select id="stationSelect"><option value="__ALL__">Tất cả / không có cột trạm</option></select>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="loadSampleBtn">Nạp dữ liệu mẫu</button>
+        <button class="secondary" id="loadSavedDataBtn">Nạp bản đã lưu offline</button>
+        <button class="secondary" id="clearBtn">Xóa phiên hiện tại</button>
+      </div>
+    </div>
+
+    <div class="card span8">
+      <h2>2) Ánh xạ cột</h2>
+      <div class="grid" style="gap:8px">
+        <div class="span4"><label>Thời gian</label><select id="colTime"></select></div>
+        <div class="span4"><label>Công suất P / MW</label><select id="colP"></select></div>
+        <div class="span4"><label>Trạm/Lộ/Khu vực</label><select id="colStation"></select></div>
+        <div class="span4"><label>Nhiệt độ</label><select id="colTemp"></select></div>
+        <div class="span4"><label>Mưa</label><select id="colRain"></select></div>
+        <div class="span4"><label>Ngày lễ/nghỉ</label><select id="colHoliday"></select></div>
+        <div class="span4"><label>Bất thường</label><select id="colAbnormal"></select></div>
+        <div class="span4"><label>Cắt điện/sự cố</label><select id="colOutage"></select></div>
+        <div class="span4"><label>Chuyển tải</label><select id="colTransfer"></select></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="secondary" id="applyMapBtn">Áp dụng ánh xạ</button>
+        <button class="secondary" id="previewBtn">Xem trước dữ liệu chuẩn hóa</button>
+        <button class="secondary" id="saveMapBtn">Lưu cấu hình cột</button>
+      </div>
+    </div>
+
+    <div class="card span12">
+      <h2>3) Hiệu chỉnh dữ liệu trước khi huấn luyện</h2>
+      <div class="toolbar">
+        <div class="span3"><label>Tìm kiếm nhanh</label><input id="editorSearch" placeholder="lọc theo trạm, ngày, ghi chú..." /></div>
+        <div class="span2"><label>Bộ lọc</label><select id="editorFilter"><option value="all">Tất cả</option><option value="invalid">Dòng lỗi thời gian/P</option><option value="abnormal">Bất thường/cắt điện/chuyển tải</option></select></div>
+        <div class="span2"><label>Số dòng/trang</label><select id="editorPageSize"><option>50</option><option selected>100</option><option>200</option><option>500</option></select></div>
+        <div class="span2"><label>Trang</label><input id="editorPage" type="number" min="1" value="1" /></div>
+        <div class="span3"><label>Trạng thái</label><div id="editorStatus"><span class="pill">Chưa có dữ liệu</span></div></div>
+      </div>
+
+      <div class="toolPanel">
+        <h3>Chọn theo ngày để hiệu chỉnh</h3>
+        <div class="toolbar">
+          <div class="span2"><label>Kiểu chọn ngày</label><select id="dateFilterMode"><option value="all">Tất cả ngày</option><option value="single">Một ngày</option><option value="multi">Nhiều ngày</option><option value="range">Từ ngày đến ngày</option></select></div>
+          <div class="span2"><label>Một ngày</label><input id="dateFilterSingle" type="date"></div>
+          <div class="span3"><label>Nhiều ngày</label><input id="dateFilterMulti" placeholder="2026-06-10, 11/06/2026, 12-06-2026"></div>
+          <div class="span2"><label>Từ ngày</label><input id="dateFilterFrom" type="date"></div>
+          <div class="span2"><label>Đến ngày</label><input id="dateFilterTo" type="date"></div>
+          <div class="span1"><label>&nbsp;</label><button class="secondary" id="resetDateFilterBtn">Bỏ lọc</button></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="secondary" id="selectVisibleRowsBtn">Chọn tất cả dòng đang hiển thị</button>
+          <button class="secondary" id="selectFilteredRowsBtn">Chọn tất cả dòng sau lọc ngày</button>
+          <button class="secondary" id="clearSelectedRowsBtn">Bỏ chọn tất cả</button>
+          <button class="secondary" id="vietnamizeHeadersBtn">Đổi tiêu đề cột sang tiếng Việt</button>
+        </div>
+        <div class="compactNote">Bộ lọc ngày chỉ giới hạn bảng hiệu chỉnh. Dữ liệu gốc vẫn còn đầy đủ để huấn luyện/dự báo.</div>
+      </div>
+
+      <div class="toolPanel">
+        <h3>Điền nhanh cho các dòng được chọn</h3>
+        <div class="toolbar">
+          <div class="span2"><label>Nhiệt độ</label><input id="quickTemp" placeholder="VD: 36.5"></div>
+          <div class="span2"><label>Mưa</label><select id="quickRain"><option value="">Giữ nguyên</option><option value="0">Không mưa / 0</option><option value="1">Có mưa / 1</option></select></div>
+          <div class="span2"><label>Ngày nghỉ/lễ</label><select id="quickHoliday"><option value="">Giữ nguyên</option><option value="auto">Tự nhận dạng</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span2"><label>Bất thường</label><select id="quickAbnormal"><option value="">Giữ nguyên</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span2"><label>Cắt điện/sự cố</label><select id="quickOutage"><option value="">Giữ nguyên</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span2"><label>Chuyển tải</label><select id="quickTransfer"><option value="">Giữ nguyên</option><option value="0">Không / 0</option><option value="1">Có / 1</option></select></div>
+          <div class="span3"><label>Trạm/Lộ nếu cần</label><input id="quickStation" placeholder="để trống = giữ nguyên"></div>
+          <div class="span3"><label>Cột tùy chọn</label><select id="quickCustomCol"><option value="">-- Không dùng --</option></select></div>
+          <div class="span3"><label>Giá trị tùy chọn</label><input id="quickCustomValue" placeholder="giá trị muốn điền"></div>
+          <div class="span3"><label>&nbsp;</label><button class="warn" id="quickFillSelectedBtn">Điền nhanh vào dòng đã chọn</button></div>
+        </div>
+        <details style="margin-top:10px">
+          <summary>Quy tắc tự nhận dạng ngày nghỉ/lễ offline</summary>
+          <div class="toolbar" style="margin-top:8px">
+            <div class="span2"><label><input id="holidaySat" type="checkbox" checked style="width:auto"> Thứ Bảy</label></div>
+            <div class="span2"><label><input id="holidaySun" type="checkbox" checked style="width:auto"> Chủ Nhật</label></div>
+            <div class="span3"><label><input id="holidayFixed" type="checkbox" checked style="width:auto"> Lễ dương cố định</label><div class="compactNote">01-01, 30-04, 01-05, 02-09</div></div>
+            <div class="span3"><label>Ngày/khoảng nghỉ bổ sung</label><input id="holidayExtraDates" placeholder="VD: 2026-02-16..2026-02-20, 2026-04-18"></div>
+            <div class="span2"><label><input id="holidayClearNonMatch" type="checkbox" checked style="width:auto"> Không khớp đặt 0</label></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="secondary" id="autoHolidaySelectedBtn">Tự nhận dạng cho dòng đã chọn</button>
+            <button class="secondary" id="autoHolidayFilteredBtn">Tự nhận dạng cho toàn bộ dòng sau lọc</button>
+          </div>
+          <div class="compactNote">Ngày âm lịch, nghỉ bù hoặc lịch riêng của đơn vị nên nhập vào ô bổ sung theo dạng YYYY-MM-DD hoặc khoảng YYYY-MM-DD..YYYY-MM-DD.</div>
+        </details>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="editorPrevBtn">← Trang trước</button>
+        <button class="secondary" id="editorNextBtn">Trang sau →</button>
+        <button class="good" id="addRowBtn">Thêm dòng</button>
+        <button class="bad" id="deleteRowsBtn">Xóa dòng chọn</button>
+        <button class="warn" id="applyEditsBtn">Lưu thay đổi vào dữ liệu</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="saveOfflineBtn">Lưu dữ liệu vào trình duyệt offline</button>
+        <button class="secondary" id="exportEditedCsvBtn">Xuất CSV đã hiệu chỉnh</button>
+        <button class="secondary" id="exportEditedJsonBtn">Xuất JSON đã hiệu chỉnh</button>
+      </div>
+      <div id="editorBox" class="tablewrap" style="margin-top:12px"><table><tbody><tr><td>Chưa có dữ liệu để hiệu chỉnh</td></tr></tbody></table></div>
+      <div class="note" style="margin-top:8px">Các ô trong bảng có thể sửa trực tiếp. Sau khi sửa, bấm <b>Lưu thay đổi vào dữ liệu</b> để chuẩn hóa lại trước khi huấn luyện.</div>
+    </div>
+
+    <div class="card span5">
+      <h2>4) Huấn luyện model GBDT</h2>
+      <div class="grid" style="gap:8px">
+        <div class="span4"><label>Số cây</label><input id="nTrees" type="number" min="5" max="300" value="70"></div>
+        <div class="span4"><label>Độ sâu cây</label><input id="maxDepth" type="number" min="1" max="6" value="3"></div>
+        <div class="span4"><label>Learning rate</label><input id="learningRate" type="number" min="0.01" max="1" step="0.01" value="0.08"></div>
+        <div class="span4"><label>Min leaf</label><input id="minLeaf" type="number" min="3" max="200" value="12"></div>
+        <div class="span4"><label>Max bins</label><input id="maxBins" type="number" min="8" max="80" value="28"></div>
+        <div class="span4"><label>Validation cuối dữ liệu (%)</label><input id="valPercent" type="number" min="5" max="40" value="20"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="good" id="trainBtn">Huấn luyện GBDT</button>
+        <button class="warn" id="exportModelBtn" disabled>Xuất model_gbdt.json</button>
+      </div>
+      <details style="margin-top:12px">
+        <summary>Ghi chú vận hành</summary>
+        <p class="note">Khi huấn luyện, các dòng có cờ bất thường/cắt điện/chuyển tải = 1 sẽ bị loại để tránh model học sai. Có thể sửa cờ ngay trong bảng hiệu chỉnh trước khi huấn luyện.</p>
+      </details>
+    </div>
+
+    <div class="card span7">
+      <h2>5) Dùng model trong SCADA offline</h2>
+      <label>Nạp model_gbdt.json đã huấn luyện</label>
+      <input id="modelFile" type="file" accept=".json" />
+      <div class="row" style="margin-top:10px">
+        <div><label>Số bước dự báo</label><input id="forecastSteps" type="number" min="1" max="336" value="24"></div>
+        <div><label>Nhiệt độ tương lai mặc định</label><input id="futureTemp" type="number" step="0.1" placeholder="Bỏ trống = lấy gần nhất"></div>
+        <div><label>Mưa tương lai</label><select id="futureRain"><option value="0">Không</option><option value="1">Có</option></select></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="forecastBtn" disabled>Dự báo tiếp theo</button>
+        <button class="secondary" id="exportForecastBtn" disabled>Xuất forecast.csv</button>
+      </div>
+      <div id="modelInfo" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card span12">
+      <h2>Kết quả / Nhật ký</h2>
+      <div class="metrics" id="metricsBox">
+        <div class="metric"><span>MAE validation</span><b id="maeVal">-</b></div>
+        <div class="metric"><span>MAPE validation</span><b id="mapeVal">-</b></div>
+        <div class="metric"><span>RMSE validation</span><b id="rmseVal">-</b></div>
+        <div class="metric"><span>Interval</span><b id="intervalVal">-</b></div>
+      </div>
+      <div style="margin-top:12px"><canvas id="chart" width="1200" height="360"></canvas></div>
+      <h3>Nhật ký</h3>
+      <div id="log" class="log"></div>
+    </div>
+
+    <div class="card span12">
+      <h2>Bảng dữ liệu chuẩn hóa / Dự báo</h2>
+      <div id="tableBox" class="tablewrap"><table><tbody><tr><td>Chưa có dữ liệu</td></tr></tbody></table></div>
+    </div>
+  </section>
+</main>
+<script src="libs/pako.min.js"></script>
+<script src="libs/sheetjs-xlsx-lite.js"></script>
+<script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(() => {
+      window.dispatchEvent(new CustomEvent('pwa-status', {detail:'Service Worker đã sẵn sàng'}));
+    }).catch(err => {
+      window.dispatchEvent(new CustomEvent('pwa-status', {detail:'Không đăng ký được Service Worker. Mở trực tiếp file vẫn chạy, nhưng PWA cần localhost/HTTPS. ' + err.message}));
+    });
+  });
+}
+</script>
+</body>
+</html>

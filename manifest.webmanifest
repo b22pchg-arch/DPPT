@@ -1,0 +1,16 @@
+{
+  "name": "SCADA Load Forecast Offline PWA LV4",
+  "short_name": "LoadForecast LV4",
+  "description": "Dự báo phụ tải SCADA offline: đọc Excel/CSV, lọc/sửa theo ngày, điền nhanh dữ liệu, huấn luyện GBDT, xuất model_gbdt.json.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='24' fill='%230f172a'/%3E%3Cpath d='M18 82h18l10-35 17 56 13-74 15 53h19' fill='none' stroke='%2338bdf8' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
+      "sizes": "128x128",
+      "type": "image/svg+xml"
+    }
+  ]
+}
