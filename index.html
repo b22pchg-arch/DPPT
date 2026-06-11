@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="LoadForecast" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>SCADA Load Forecast Offline PWA LV4.1</title>
+  <title>SCADA Load Forecast Offline PWA LV5</title>
   <style>
     :root{
       --bg:#0b1220;--panel:#111c2f;--panel2:#16243b;--text:#e5edf7;--muted:#9fb0c6;
@@ -23,7 +23,7 @@
     header{padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0f172a,#132238)}
     h1{font-size:20px;margin:0 0 6px} h2{font-size:17px;margin:0 0 12px} h3{font-size:15px;margin:14px 0 8px}
     .sub{color:var(--muted);font-size:13px}
-    main{max-width:1380px;margin:0 auto;padding:14px;display:grid;gap:14px}
+    main{max-width:1480px;margin:0 auto;padding:14px;display:grid;gap:14px}
     .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
     .span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}.span6{grid-column:span 6}.span7{grid-column:span 7}.span8{grid-column:span 8}.span9{grid-column:span 9}.span12{grid-column:span 12}
@@ -38,6 +38,7 @@
     .pill.ok{border-color:#14532d;color:#86efac;background:#062315}.pill.warn{border-color:#92400e;color:#fbbf24;background:#261707}.pill.bad{border-color:#7f1d1d;color:#fecaca;background:#2a0b0b}
     .log{height:190px;overflow:auto;background:#06101e;border:1px solid var(--line);border-radius:12px;padding:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre-wrap;color:#cbd5e1}
     .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:440px;background:#081426}
+    .hideByMode{display:none!important}.statusBox{background:#071120;border:1px solid var(--line);border-radius:12px;padding:10px}.smallTable{max-height:260px}.modeBadge{font-weight:800;color:#fef3c7;background:#3b2603;border-color:#92400e}.dangerBox{border-color:#7f1d1d;background:#220b0b}.okBox{border-color:#14532d;background:#062315}
     table{border-collapse:collapse;width:100%;font-size:12px;min-width:800px} th,td{border-bottom:1px solid #21334e;padding:7px 8px;text-align:right;white-space:nowrap}
     th{position:sticky;top:0;background:#13243a;color:#dbeafe;z-index:1} td:first-child,th:first-child{text-align:left}
     .editorTable th,.editorTable td{text-align:left}.editorTable td[contenteditable="true"]{background:var(--edit);outline:none;min-width:96px}.editorTable td[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--accent);background:#0a2238}.editorTable tr.invalid td{background:#2a1111}.editorTable tr.selected td{box-shadow:inset 0 0 0 9999px rgba(56,189,248,.08)}.editorTable .rowSelect{width:auto;transform:scale(1.1)}
@@ -51,11 +52,30 @@
 </head>
 <body>
 <header>
-  <h1>SCADA Load Forecast Offline PWA LV4.1</h1>
-  <div class="sub">LV4.1: sửa lỗi bảng không nạp dữ liệu sau khi bổ sung icon; giữ các chức năng LV4: thêm bộ lọc hiệu chỉnh theo <b>ngày / nhiều ngày / khoảng ngày</b>, điền nhanh nhiệt độ và các cờ vận hành cho dòng được chọn, tự nhận dạng ngày nghỉ/lễ theo quy tắc offline, Việt hóa tiêu đề bảng. Vẫn đọc Excel .xlsx/.xlsm, huấn luyện/xuất <b>model_gbdt.json</b>. Không CDN, không server ngoài, không pwa.js.</div>
+  <h1>SCADA Load Forecast Offline PWA LV5</h1>
+  <div class="sub">LV5: bổ sung đủ 8 nhóm nâng cấp: kiểm tra chất lượng dữ liệu, nội suy/mất mẫu, dự báo theo trạm/lộ, mô hình lai GBDT + Similar Day + bù sai số, biểu đồ thực tế/dự báo/sai số, cảnh báo ngưỡng vận hành, lưu/nạp cấu hình offline kèm nút <b>Ép cập nhật bản mới</b>, và chế độ <b>Mạng ngoài / SCADA</b>. Không CDN, không server ngoài, không pwa.js.</div>
 </header>
 <main>
   <section class="grid">
+
+    <div class="card span12">
+      <h2>0) Chế độ vận hành & cấu hình offline</h2>
+      <div class="toolbar">
+        <div class="span3"><label>Chế độ</label><select id="appMode"><option value="external">Mạng ngoài: hiệu chỉnh + huấn luyện</option><option value="scada">SCADA: dự báo nhanh + cảnh báo</option></select></div>
+        <div class="span3"><label>Tên cấu hình</label><input id="configName" value="SCADA_LOAD_FORECAST_LV5"></div>
+        <div class="span3"><label>Mốc dữ liệu mong muốn</label><select id="expectedInterval"><option value="auto">Tự nhận dạng</option><option value="5">5 phút</option><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">60 phút</option></select></div>
+        <div class="span3"><label>Trạng thái bản</label><div id="versionInfo"><span class="pill modeBadge">LV5</span></div></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="saveFullConfigBtn">Lưu cấu hình offline</button>
+        <button class="secondary" id="loadFullConfigBtn">Nạp cấu hình offline</button>
+        <button class="secondary" id="exportConfigBtn">Xuất config_lv5.json</button>
+        <button class="secondary" id="importConfigBtn">Nạp config</button>
+        <button class="warn" id="forceUpdateBtn">Ép cập nhật bản mới</button>
+      </div>
+      <input id="configFile" type="file" accept=".json" style="display:none" />
+      <div class="compactNote">Nút ép cập nhật sẽ yêu cầu Service Worker bỏ cache cũ, rồi tự tải lại trang. Dùng khi chép bản LV mới vào cùng thư mục nhưng trình duyệt vẫn giữ cache cũ.</div>
+    </div>
     <div class="card span4">
       <h2>1) Nạp dữ liệu từ file</h2>
       <label>File dữ liệu phụ tải</label>
@@ -94,7 +114,7 @@
       </div>
     </div>
 
-    <div class="card span12">
+    <div class="card span12 modeExternal">
       <h2>3) Hiệu chỉnh dữ liệu trước khi huấn luyện</h2>
       <div class="toolbar">
         <div class="span3"><label>Tìm kiếm nhanh</label><input id="editorSearch" placeholder="lọc theo trạm, ngày, ghi chú..." /></div>
@@ -170,8 +190,42 @@
       <div class="note" style="margin-top:8px">Các ô trong bảng có thể sửa trực tiếp. Sau khi sửa, bấm <b>Lưu thay đổi vào dữ liệu</b> để chuẩn hóa lại trước khi huấn luyện.</div>
     </div>
 
-    <div class="card span5">
-      <h2>4) Huấn luyện model GBDT</h2>
+
+    <div class="card span6 modeExternal">
+      <h2>4) Kiểm tra chất lượng dữ liệu</h2>
+      <div class="toolbar">
+        <div class="span3"><label>Ngưỡng đột biến P (%)</label><input id="spikePercent" type="number" value="35" min="5" max="300"></div>
+        <div class="span3"><label>Ngưỡng P thấp bất thường</label><input id="minValidP" type="number" value="0" step="0.001"></div>
+        <div class="span3"><label>Số lỗi hiển thị</label><input id="qualityMaxRows" type="number" value="300" min="20" max="2000"></div>
+        <div class="span3"><label>&nbsp;</label><button class="good" id="runQualityBtn">Kiểm tra dữ liệu</button></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="selectQualityRowsBtn">Chọn dòng lỗi trên bảng hiệu chỉnh</button>
+        <button class="warn" id="markQualityAbnormalBtn">Đánh dấu bất thường các dòng lỗi</button>
+        <button class="secondary" id="exportQualityBtn">Xuất quality_report.csv</button>
+      </div>
+      <div id="qualitySummary" class="statusBox" style="margin-top:10px"><span class="pill">Chưa kiểm tra</span></div>
+      <div id="qualityBox" class="tablewrap smallTable" style="margin-top:10px"><table><tbody><tr><td>Chưa có báo cáo</td></tr></tbody></table></div>
+    </div>
+
+    <div class="card span6 modeExternal">
+      <h2>5) Nội suy / bổ sung dữ liệu mất mẫu</h2>
+      <div class="toolbar">
+        <div class="span3"><label>Phạm vi</label><select id="interpScope"><option value="current">Trạm/lộ đang chọn</option><option value="all">Tất cả trạm/lộ</option></select></div>
+        <div class="span3"><label>Phương pháp P</label><select id="interpMethod"><option value="linear">Tuyến tính giữa 2 mốc</option><option value="prev">Giữ giá trị trước</option><option value="day">Ưu tiên cùng giờ hôm trước</option><option value="week">Ưu tiên cùng giờ tuần trước</option></select></div>
+        <div class="span3"><label>Số mốc thiếu tối đa/gap</label><input id="interpMaxGap" type="number" value="12" min="1" max="500"></div>
+        <div class="span3"><label>&nbsp;</label><button class="warn" id="interpolateBtn">Bổ sung mốc thiếu</button></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="fillInvalidPBtn">Nội suy P trống/lỗi trong dòng hiện có</button>
+        <button class="secondary" id="addProcessColumnsBtn">Thêm cột xử lý</button>
+      </div>
+      <div id="interpolationInfo" class="statusBox" style="margin-top:10px"><span class="pill">Chưa thực hiện</span></div>
+      <div class="compactNote">Mốc bổ sung được đánh dấu bằng cột <b>du_lieu_noi_suy</b> và <b>ghi_chu_xu_ly</b> để có thể kiểm tra lại trước khi huấn luyện.</div>
+    </div>
+
+    <div class="card span5 modeExternal">
+      <h2>6) Huấn luyện model GBDT / model riêng theo trạm-lộ</h2>
       <div class="grid" style="gap:8px">
         <div class="span4"><label>Số cây</label><input id="nTrees" type="number" min="5" max="300" value="70"></div>
         <div class="span4"><label>Độ sâu cây</label><input id="maxDepth" type="number" min="1" max="6" value="3"></div>
@@ -181,9 +235,21 @@
         <div class="span4"><label>Validation cuối dữ liệu (%)</label><input id="valPercent" type="number" min="5" max="40" value="20"></div>
       </div>
       <div class="row" style="margin-top:12px">
-        <button class="good" id="trainBtn">Huấn luyện GBDT</button>
+        <button class="good" id="trainBtn">Huấn luyện GBDT cho trạm/lộ đang chọn</button>
+        <button class="good" id="trainAllStationsBtn">Huấn luyện theo từng trạm/lộ</button>
         <button class="warn" id="exportModelBtn" disabled>Xuất model_gbdt.json</button>
       </div>
+      <details style="margin-top:12px" open>
+        <summary>Trọng số mô hình lai LV5</summary>
+        <div class="toolbar" style="margin-top:8px">
+          <div class="span2"><label>GBDT</label><input id="wGbdt" type="number" step="0.05" value="0.50"></div>
+          <div class="span2"><label>Similar Day</label><input id="wSimilar" type="number" step="0.05" value="0.25"></div>
+          <div class="span2"><label>Cùng giờ tuần trước</label><input id="wWeek" type="number" step="0.05" value="0.15"></div>
+          <div class="span2"><label>Xu hướng gần nhất</label><input id="wTrend" type="number" step="0.05" value="0.10"></div>
+          <div class="span2"><label>Bù sai số</label><input id="biasWindow" type="number" min="0" max="96" value="24"></div>
+          <div class="span2"><label>Chế độ dự báo</label><select id="forecastBlend"><option value="hybrid">Lai đầy đủ</option><option value="gbdt">Chỉ GBDT</option><option value="similar">Similar Day</option></select></div>
+        </div>
+      </details>
       <details style="margin-top:12px">
         <summary>Ghi chú vận hành</summary>
         <p class="note">Khi huấn luyện, các dòng có cờ bất thường/cắt điện/chuyển tải = 1 sẽ bị loại để tránh model học sai. Có thể sửa cờ ngay trong bảng hiệu chỉnh trước khi huấn luyện.</p>
@@ -191,7 +257,7 @@
     </div>
 
     <div class="card span7">
-      <h2>5) Dùng model trong SCADA offline</h2>
+      <h2>7) Dùng model trong SCADA offline</h2>
       <label>Nạp model_gbdt.json đã huấn luyện</label>
       <input id="modelFile" type="file" accept=".json" />
       <div class="row" style="margin-top:10px">
@@ -200,10 +266,24 @@
         <div><label>Mưa tương lai</label><select id="futureRain"><option value="0">Không</option><option value="1">Có</option></select></div>
       </div>
       <div class="row" style="margin-top:12px">
-        <button id="forecastBtn" disabled>Dự báo tiếp theo</button>
+        <button id="forecastBtn" disabled>Dự báo trạm/lộ đang chọn</button>
+        <button class="secondary" id="forecastAllBtn" disabled>Dự báo tất cả trạm/lộ</button>
         <button class="secondary" id="exportForecastBtn" disabled>Xuất forecast.csv</button>
       </div>
       <div id="modelInfo" style="margin-top:10px"></div>
+      <details style="margin-top:12px" open>
+        <summary>Ngưỡng cảnh báo vận hành</summary>
+        <label>Danh sách ngưỡng: mỗi dòng = Trạm/Lộ, Cảnh báo MW, Nguy hiểm MW</label>
+        <textarea id="thresholdText" rows="4" placeholder="E22.1,38,42
+471,9,11
+__ALL__,80,90"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="secondary" id="applyThresholdBtn">Áp dụng ngưỡng</button>
+          <button class="secondary" id="exportThresholdBtn">Xuất thresholds.csv</button>
+        </div>
+        <div id="thresholdAlerts" class="statusBox" style="margin-top:8px"><span class="pill">Chưa có cảnh báo</span></div>
+      </details>
+      <div id="forecastExplainBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có giải thích dự báo</span></div>
     </div>
 
     <div class="card span12">
@@ -214,7 +294,15 @@
         <div class="metric"><span>RMSE validation</span><b id="rmseVal">-</b></div>
         <div class="metric"><span>Interval</span><b id="intervalVal">-</b></div>
       </div>
+      <div class="metrics" style="margin-top:8px">
+        <div class="metric"><span>Pmax dự báo</span><b id="pmaxForecastVal">-</b></div>
+        <div class="metric"><span>Giờ Pmax dự báo</span><b id="pmaxTimeVal">-</b></div>
+        <div class="metric"><span>Sai số lớn nhất</span><b id="maxErrorVal">-</b></div>
+        <div class="metric"><span>Giờ sai số lớn nhất</span><b id="maxErrorTimeVal">-</b></div>
+      </div>
       <div style="margin-top:12px"><canvas id="chart" width="1200" height="360"></canvas></div>
+      <h3>Biểu đồ sai số</h3>
+      <div style="margin-top:8px"><canvas id="errorChart" width="1200" height="260"></canvas></div>
       <h3>Nhật ký</h3>
       <div id="log" class="log"></div>
     </div>

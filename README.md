@@ -1,70 +1,98 @@
-# SCADA Load Forecast Offline PWA LV4
+# SCADA Load Forecast Offline PWA LV5
 
-Công cụ HTML/PWA offline để tổng hợp dữ liệu phụ tải, hiệu chỉnh dữ liệu, huấn luyện mô hình GBDT và xuất `model_gbdt.json` để sử dụng trong mạng SCADA không có internet.
+Bản LV5 dùng để xây dựng quy trình dự báo phụ tải offline cho môi trường SCADA không có internet.
 
-## Điểm mới LV4
+## Điểm chính
 
-- Thêm bộ lọc bảng hiệu chỉnh theo:
-  - một ngày;
-  - nhiều ngày nhập danh sách;
-  - từ ngày đến ngày.
-- Khi mỗi ngày có nhiều mốc dữ liệu, chọn một ngày sẽ hiển thị toàn bộ các mốc của ngày đó trên bảng hiệu chỉnh.
-- Thêm chọn nhanh:
-  - chọn tất cả dòng đang hiển thị;
-  - chọn tất cả dòng sau bộ lọc ngày/bộ lọc lỗi;
-  - bỏ chọn tất cả.
-- Thêm điền nhanh cho các dòng được chọn:
-  - nhiệt độ;
-  - mưa;
-  - ngày nghỉ/lễ;
-  - bất thường;
-  - cắt điện/sự cố;
-  - chuyển tải;
-  - trạm/lộ;
-  - cột tùy chọn bất kỳ.
-- Thêm tự nhận dạng ngày nghỉ/lễ offline theo quy tắc:
-  - Thứ Bảy;
-  - Chủ Nhật;
-  - ngày lễ dương cố định: 01-01, 30-04, 01-05, 02-09;
-  - danh sách ngày/khoảng nghỉ bổ sung do người dùng nhập.
-- Việt hóa tiêu đề bảng hiển thị và có nút đổi tiêu đề cột sang tiếng Việt.
+- Chạy offline, không CDN, không server ngoài, không `pwa.js`.
+- Đọc dữ liệu: CSV/TXT/TSV/JSON và Excel `.xlsx/.xlsm` bằng thư viện nội bộ.
+- Hiệu chỉnh dữ liệu trực tiếp trong bảng.
+- Lọc theo một ngày, nhiều ngày, hoặc khoảng ngày để sửa nhanh.
+- Điền nhanh nhiệt độ, mưa, ngày lễ, bất thường, cắt điện/sự cố, chuyển tải cho các dòng được chọn.
+- Tự nhận dạng ngày nghỉ/lễ offline.
+- Huấn luyện GBDT bằng JavaScript thuần.
+- Xuất `model_gbdt.json` để đưa vào mạng SCADA.
+- Nạp model và dự báo offline trong mạng SCADA.
 
-## Giữ chức năng từ LV3
+## Nâng cấp LV5
 
-- Đọc trực tiếp file Excel `.xlsx` và `.xlsm` trong trình duyệt.
-- Giữ hỗ trợ CSV / TXT / TSV / JSON.
-- Có chọn sheet Excel sau khi nạp file.
-- Nhúng nội bộ:
-  - `libs/pako.min.js` để giải nén file `.xlsx`.
-  - `libs/sheetjs-xlsx-lite.js` là lớp đọc Excel theo API kiểu SheetJS, chạy offline.
-- Sửa dữ liệu trực tiếp, lưu offline, xuất CSV/JSON đã hiệu chỉnh, huấn luyện GBDT, xuất `model_gbdt.json`.
-- Có file mẫu `sample_load_data.xlsx` để kiểm thử đọc Excel.
+LV5 bổ sung đầy đủ 8 nhóm chức năng:
 
-## Lưu ý về SheetJS chính thức và file .xls
+1. **Kiểm tra chất lượng dữ liệu**
+   - Thiếu/sai thời gian.
+   - Thiếu/sai P.
+   - P âm, P thấp bất thường.
+   - Trùng mốc thời gian.
+   - Mất mốc thời gian.
+   - P tăng/giảm đột biến.
+   - Xuất `quality_report.csv`.
 
-Bản LV4 hiện có bộ đọc `.xlsx/.xlsm` nhúng sẵn để chạy offline. File Excel `.xls` nhị phân cũ cần thư viện SheetJS chính thức `xlsx.full.min.js` hoặc cần lưu lại thành `.xlsx` / CSV UTF-8 trước khi nạp.
+2. **Nội suy / bổ sung dữ liệu mất mẫu**
+   - Bổ sung mốc thời gian thiếu.
+   - Nội suy P tuyến tính, giữ giá trị trước, cùng giờ hôm trước hoặc cùng giờ tuần trước.
+   - Nội suy P trống/lỗi trong các dòng hiện có.
+   - Tự thêm cột `du_lieu_noi_suy`, `ghi_chu_xu_ly`, `bo_khoi_huan_luyen`.
 
-Trong vận hành thực tế, nên ưu tiên xuất từ Excel/SCADA thành `.xlsx` hoặc CSV UTF-8.
+3. **Dự báo theo từng trạm/lộ riêng**
+   - Chọn trạm/lộ để huấn luyện model riêng.
+   - Có nút huấn luyện theo từng trạm/lộ để tạo bundle model.
+   - Có nút dự báo tất cả trạm/lộ.
 
-## Cấu trúc file
+4. **Mô hình lai LV5**
+   - GBDT.
+   - Similar Day.
+   - Cùng giờ tuần trước.
+   - Xu hướng gần nhất.
+   - Bù sai số gần nhất.
+   - Cho phép chỉnh trọng số.
 
-```text
-index.html
-app.js
-sw.js
-manifest.webmanifest
-README.md
-sample_load_data.csv
-sample_load_data.xlsx
-libs/pako.min.js
-libs/sheetjs-xlsx-lite.js
-```
+5. **Biểu đồ thực tế / dự báo / sai số**
+   - Biểu đồ validation thực tế và dự báo.
+   - Biểu đồ sai số.
+   - Hiển thị Pmax dự báo, giờ Pmax, sai số lớn nhất và giờ sai số lớn nhất.
 
-## Cách chạy
+6. **Cảnh báo quá tải theo ngưỡng vận hành**
+   - Nhập ngưỡng theo từng trạm/lộ.
+   - Ví dụ: `E22.1,38,42`.
+   - Tự đánh dấu `Bình thường`, `CẢNH BÁO`, `NGUY HIỂM` trong bảng dự báo.
 
-Mở trực tiếp `index.html` vẫn dùng được phần đọc file, sửa dữ liệu, huấn luyện và dự báo.
+7. **Lưu/nạp cấu hình offline**
+   - Lưu cấu hình vào trình duyệt.
+   - Xuất `config_lv5.json`.
+   - Nạp `config_lv5.json`.
+   - Lưu ánh xạ cột, ngày lễ, tham số huấn luyện, trọng số mô hình lai, ngưỡng cảnh báo.
+   - Có nút **Ép cập nhật bản mới** để xóa cache PWA/Service Worker cũ khi copy bản mới vào cùng thư mục.
 
-Để PWA cache offline hoạt động đúng chuẩn, chạy qua localhost hoặc web server nội bộ:
+8. **Chế độ Mạng ngoài / SCADA**
+   - Mạng ngoài: hiện đầy đủ hiệu chỉnh, kiểm tra, nội suy, huấn luyện.
+   - SCADA: ẩn các khối hiệu chỉnh/huấn luyện để tập trung nạp model, dự báo và cảnh báo.
+
+## Quy trình khuyến nghị
+
+### Máy ngoài mạng SCADA
+
+1. Mở app LV5.
+2. Chọn chế độ **Mạng ngoài**.
+3. Nạp dữ liệu lịch sử Excel/CSV.
+4. Kiểm tra chất lượng dữ liệu.
+5. Nội suy hoặc đánh dấu bất thường nếu cần.
+6. Huấn luyện model GBDT hoặc huấn luyện theo từng trạm/lộ.
+7. Xuất `model_gbdt.json`.
+8. Xuất `config_lv5.json` nếu cần.
+
+### Máy trong mạng SCADA
+
+1. Mở app LV5.
+2. Chọn chế độ **SCADA**.
+3. Nạp dữ liệu mới nhất.
+4. Nạp `model_gbdt.json`.
+5. Nạp cấu hình/ngưỡng nếu có.
+6. Bấm dự báo trạm/lộ đang chọn hoặc dự báo tất cả trạm/lộ.
+7. Xuất `forecast.csv`.
+
+## Chạy PWA đúng chuẩn
+
+Nếu mở trực tiếp bằng `file://`, phần đọc file, sửa dữ liệu, huấn luyện và dự báo vẫn chạy. Để Service Worker và cache PWA hoạt động đúng chuẩn, nên chạy qua localhost hoặc web server nội bộ:
 
 ```bash
 python -m http.server 8080
@@ -76,112 +104,6 @@ Sau đó mở:
 http://localhost:8080/index.html
 ```
 
-## Quy trình hiệu chỉnh dữ liệu theo ngày
+## Lưu ý về Excel `.xls`
 
-```text
-1. Nạp file dữ liệu.
-2. Kiểm tra ánh xạ cột.
-3. Ở phần Hiệu chỉnh dữ liệu, chọn kiểu lọc ngày:
-   - Một ngày;
-   - Nhiều ngày;
-   - Từ ngày đến ngày.
-4. Bấm chọn tất cả dòng đang hiển thị hoặc chọn tất cả dòng sau lọc.
-5. Nhập giá trị điền nhanh, ví dụ nhiệt độ 36.5 hoặc cờ ngày nghỉ/lễ = 1.
-6. Bấm “Điền nhanh vào dòng đã chọn”.
-7. Bấm “Lưu thay đổi vào dữ liệu”.
-```
-
-## Tự nhận dạng ngày nghỉ/lễ
-
-Công cụ tự nhận dạng theo quy tắc offline, không cần mạng.
-
-Mặc định gồm:
-
-```text
-Thứ Bảy
-Chủ Nhật
-01-01
-30-04
-01-05
-02-09
-```
-
-Với Tết âm lịch, nghỉ bù hoặc lịch riêng của đơn vị, nhập thêm vào ô “Ngày/khoảng nghỉ bổ sung”, ví dụ:
-
-```text
-2026-02-16..2026-02-20, 2026-04-18
-```
-
-Sau đó bấm:
-
-```text
-Tự nhận dạng cho dòng đã chọn
-hoặc
-Tự nhận dạng cho toàn bộ dòng sau lọc
-```
-
-## Quy trình huấn luyện ngoài mạng SCADA
-
-```text
-1. Mở LV4 trên máy ngoài mạng SCADA.
-2. Nạp dữ liệu lịch sử dạng .xlsx/.xlsm/.csv/.json.
-3. Chọn sheet nếu là Excel.
-4. Kiểm tra ánh xạ cột.
-5. Hiệu chỉnh dữ liệu lỗi, nhiệt độ, ngày nghỉ/lễ, bất thường nếu cần.
-6. Bấm “Lưu thay đổi vào dữ liệu”.
-7. Huấn luyện GBDT.
-8. Xuất model_gbdt.json.
-```
-
-## Quy trình dùng trong mạng SCADA
-
-```text
-1. Copy toàn bộ thư mục LV4 vào máy SCADA hoặc web server nội bộ.
-2. Nạp dữ liệu phụ tải mới nhất.
-3. Nạp model_gbdt.json đã huấn luyện ở bên ngoài.
-4. Chọn trạm/lộ/khu vực.
-5. Chạy dự báo offline.
-6. Xuất forecast.csv nếu cần.
-```
-
-## Cột dữ liệu khuyến nghị
-
-Tối thiểu:
-
-```text
-Thời gian, P_MW
-```
-
-Nên có thêm:
-
-```text
-Trạm/Lộ, Nhiệt độ, Mưa, Ngày nghỉ/lễ, Bất thường, Cắt điện/Sự cố, Chuyển tải
-```
-
-Các dòng `Bất thường`, `Cắt điện/Sự cố`, `Chuyển tải` = 1 sẽ được loại khỏi tập huấn luyện để tránh làm sai mô hình.
-
-## Ghi chú vận hành
-
-- Không dùng CDN.
-- Không cần internet.
-- Không có `pwa.js`.
-- Service Worker cache các file nội bộ để dùng offline.
-- Bộ lọc ngày chỉ giới hạn bảng hiệu chỉnh, không xóa dữ liệu gốc.
-
-
-## Icon PWA / biểu tượng ứng dụng
-
-Bản này đã bổ sung thư mục `icons/` và các file biểu tượng:
-
-- `favicon.ico`
-- `favicon.svg`
-- `icons/icon-72.png`, `icon-96.png`, `icon-128.png`, `icon-144.png`, `icon-152.png`, `icon-180.png`, `icon-192.png`, `icon-384.png`, `icon-512.png`
-- `icons/icon-512-maskable.png`
-
-`manifest.webmanifest`, `index.html` và `sw.js` đã được cập nhật để khi cài PWA/Add to Home Screen sẽ có biểu tượng ứng dụng và vẫn cache offline.
-
-
-## LV4.1 - sửa lỗi nạp bảng
-- Bổ sung các hàm bị thiếu: `refreshQuickCustomColumns`, `headerDisplayName`, `makeUniqueName`, `getColumnSelectValues`, `restoreColumnSelectValues`.
-- Cập nhật cache Service Worker để trình duyệt nhận app.js mới.
-- Giữ đầy đủ icon PWA và chức năng đọc Excel/CSV/JSON.
+Bản này nhúng bộ đọc `.xlsx/.xlsm` nhẹ. File `.xls` nhị phân cũ nên lưu lại thành `.xlsx` hoặc CSV UTF-8 trước khi đưa vào app. Nếu cần đọc `.xls` trực tiếp, có thể thay bằng SheetJS chính thức `xlsx.full.min.js` nội bộ.
