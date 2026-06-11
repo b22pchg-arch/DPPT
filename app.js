@@ -617,7 +617,8 @@ function normalizeRows() {
     const abnormal = m.abnormal ? parseFlag(r[m.abnormal]) : 0;
     const outage = m.outage ? parseFlag(r[m.outage]) : 0;
     const transfer = m.transfer ? parseFlag(r[m.transfer]) : 0;
-    return {idx, raw: r, time, p, station: station || 'ALL', temp, rain, holiday, abnormal, outage, transfer};
+    const excludeTrain = parseFlag(r['bo_khoi_huan_luyen']);
+    return {idx, raw: r, time, p, station: station || 'ALL', temp, rain, holiday, abnormal, outage, transfer, excludeTrain};
   }).filter(r => r.time && Number.isFinite(r.p));
   state.rows.sort((a,b) => a.time - b.time);
   buildStationSelect();
@@ -708,7 +709,7 @@ function buildDataset(rows, featureMeansFromModel=null) {
   for (let i=1; i<filled.length; i++) {
     const r = filled[i];
     if (!Number.isFinite(r.p)) continue;
-    if (r.abnormal || r.outage || r.transfer) continue;
+    if (r.abnormal || r.outage || r.transfer || r.excludeTrain) continue;
     const x = computeFeatureVector(filled, i, nPerDay, {});
     if (!Number.isFinite(x[11])) continue; // cần lag1 tối thiểu
     Xraw.push(x); y.push(r.p); times.push(r.time); cleanRows.push(r);
@@ -1364,7 +1365,7 @@ function loadTextFile(file, cb) {
 state.qualityIssues = state.qualityIssues || [];
 state.thresholds = state.thresholds || [];
 state.appMode = state.appMode || 'external';
-state.lv5 = state.lv5 || {version:'LV5'};
+state.lv5 = state.lv5 || {version:'LV5.3'};
 
 function getHybridWeights() {
   const read = id => parseNumber($(id)?.value);
@@ -1431,7 +1432,17 @@ function runQualityCheck() {
     if (!time) issues.push({rowIndex:i, time:'', station, type:'Sai thời gian', value: raw[m.time], suggestion:'Sửa định dạng ngày giờ hoặc xóa khỏi huấn luyện'});
     if (!Number.isFinite(p)) issues.push({rowIndex:i, time: time?fmtTime(time):'', station, type:'Thiếu/sai P', value: raw[m.p], suggestion:'Nội suy P hoặc kiểm tra nguồn dữ liệu'});
     if (Number.isFinite(p) && p < 0) issues.push({rowIndex:i, time:fmtTime(time), station, type:'P âm', value:p, suggestion:'Đánh dấu bất thường hoặc sửa theo số đo đúng'});
-    if (Number.isFinite(p) && Number.isFinite(minValidP) && p <= minValidP) issues.push({rowIndex:i, time:time?fmtTime(time):'', station, type:'P thấp bất thường', value:p, suggestion:'Kiểm tra mất điện/mất tín hiệu/chuyển tải'});
+    if (Number.isFinite(p) && Number.isFinite(minValidP) && p <= minValidP) {
+      const outage = m.outage ? parseFlag(raw[m.outage]) : 0;
+      const transfer = m.transfer ? parseFlag(raw[m.transfer]) : 0;
+      const abnormal = m.abnormal ? parseFlag(raw[m.abnormal]) : 0;
+      let type = 'P thấp bất thường';
+      let suggestion = 'Nếu không có cờ cắt điện/chuyển tải thì nên nội suy hoặc đánh dấu bất thường/bỏ khỏi huấn luyện';
+      if (outage) { type = 'P thấp do cắt điện/sự cố'; suggestion = 'Giữ làm dữ liệu vận hành, nhưng bỏ khỏi huấn luyện; chỉ nội suy nếu cần chuỗi P liên tục để dự báo'; }
+      else if (transfer) { type = 'P thấp do chuyển tải'; suggestion = 'Kiểm tra lộ/trạm nhận chuyển tải có tăng tương ứng; bỏ khỏi huấn luyện hoặc nội suy khi cần chuỗi liên tục'; }
+      else if (abnormal) { type = 'P thấp đã đánh dấu bất thường'; suggestion = 'Bỏ khỏi huấn luyện; chỉ nội suy nếu cần chuỗi liên tục'; }
+      issues.push({rowIndex:i, time:time?fmtTime(time):'', station, type, value:p, suggestion});
+    }
   }
   let rows = [];
   try { normalizeRows(); rows = getSelectedRows(); } catch(_) { rows = state.rows || []; }
@@ -1456,6 +1467,40 @@ function runQualityCheck() {
       }
     }
   }
+  // Kiểm tra nhanh logic chuyển tải: một ngăn lộ giảm thấp do chuyển tải thường phải có ngăn lộ/khu vực khác tăng lên cùng thời điểm.
+  try {
+    const byTime = new Map();
+    const byStation = new Map();
+    for (const r of rows) {
+      const tk = fmtTime(r.time);
+      if (!byTime.has(tk)) byTime.set(tk, []);
+      byTime.get(tk).push(r);
+      const sk = r.station || 'ALL';
+      if (!byStation.has(sk)) byStation.set(sk, []);
+      byStation.get(sk).push(r);
+    }
+    for (const arr of byStation.values()) arr.sort((a,b)=>a.time-b.time);
+    const prevByIdx = new Map();
+    for (const arr of byStation.values()) {
+      for (let i=1;i<arr.length;i++) prevByIdx.set(arr[i].idx, arr[i-1]);
+    }
+    for (const r of rows) {
+      if (!Number.isFinite(minValidP) || !(r.transfer && Number.isFinite(r.p) && r.p <= minValidP)) continue;
+      const sameTime = byTime.get(fmtTime(r.time)) || [];
+      let hasReceiverIncrease = false;
+      for (const other of sameTime) {
+        if (other.idx === r.idx || other.station === r.station) continue;
+        const prev = prevByIdx.get(other.idx);
+        if (!prev || !Number.isFinite(prev.p) || !Number.isFinite(other.p)) continue;
+        const delta = other.p - prev.p;
+        const pct = Math.abs(prev.p) > 0.001 ? delta / Math.abs(prev.p) * 100 : 0;
+        if (delta > 0 && pct >= 5) { hasReceiverIncrease = true; break; }
+      }
+      if (!hasReceiverIncrease) {
+        issues.push({rowIndex:r.idx, time:fmtTime(r.time), station:r.station, type:'Chuyển tải chưa thấy lộ nhận tăng', value:r.p, suggestion:'Kiểm tra lại dữ liệu cùng thời điểm: nếu là chuyển tải thật, nên có trạm/lộ khác tăng tải; nếu không có thì có thể là lỗi đo hoặc cắt điện'});
+      }
+    }
+  } catch(_) {}
   state.qualityIssues = issues;
   renderQualityReport();
   log(`Kiểm tra chất lượng dữ liệu hoàn tất: ${issues.length} cảnh báo.`);
@@ -1524,6 +1569,96 @@ function inferPForMissing(method, arr, leftIdx, rightIdx, targetTime, interval) 
   return Number.isFinite(left?.p) ? left.p : NaN;
 }
 
+
+function editorDateFilterPassTime(time) {
+  const mode = state.editor.dateMode || 'all';
+  if (mode === 'all') return true;
+  const key = fmtDateKey(time);
+  if (mode === 'single') return key === parseDateKey(state.editor.dateSingle);
+  if (mode === 'multi') return parseDateList(state.editor.dateMulti).has(key);
+  if (mode === 'range') {
+    const from = parseDateKey(state.editor.dateFrom);
+    const to = parseDateKey(state.editor.dateTo);
+    if (from && key < from) return false;
+    if (to && key > to) return false;
+    return true;
+  }
+  return true;
+}
+
+function getInvalidPThreshold() {
+  const v = parseNumber($('minValidP')?.value);
+  return Number.isFinite(v) ? v : NaN;
+}
+
+function rawOperationalFlags(raw, m) {
+  return {
+    abnormal: m?.abnormal ? parseFlag(raw?.[m.abnormal]) : 0,
+    outage: m?.outage ? parseFlag(raw?.[m.outage]) : 0,
+    transfer: m?.transfer ? parseFlag(raw?.[m.transfer]) : 0,
+    excludeTrain: parseFlag(raw?.['bo_khoi_huan_luyen'])
+  };
+}
+
+function isLowPValue(p, threshold=getInvalidPThreshold()) {
+  return Number.isFinite(p) && Number.isFinite(threshold) && p <= threshold;
+}
+
+function shouldInterpolateLowP(raw, m, p, threshold=getInvalidPThreshold()) {
+  if (!isLowPValue(p, threshold)) return false;
+  const mode = $('lowPHandlingMode')?.value || 'auto';
+  const flags = rawOperationalFlags(raw, m);
+  const hasOperationFlag = !!(flags.abnormal || flags.outage || flags.transfer || flags.excludeTrain);
+  if (mode === 'fill_all') return true;
+  if (mode === 'exclude_events' && hasOperationFlag) return false;
+  // auto: P thấp/P=0 chỉ coi là lỗi cần nội suy khi chưa có cờ vận hành.
+  // Nếu đã có cờ cắt điện/chuyển tải/bất thường, giữ số đo gốc và loại khỏi huấn luyện.
+  return !hasOperationFlag;
+}
+
+function isBadPForInterpolation(p, raw, m, threshold=getInvalidPThreshold()) {
+  const original = m?.p ? String(raw?.[m.p] ?? '').trim() : '';
+  if (!original) return true;
+  if (!Number.isFinite(p)) return true;
+  if (isLowPValue(p, threshold)) return shouldInterpolateLowP(raw, m, p, threshold);
+  return false;
+}
+
+function markLowPOperationalEventsForTraining() {
+  const m = readMap();
+  if (!m.p) throw new Error('Cần ánh xạ cột Công suất P.');
+  addProcessColumns();
+  const targetSet = getInterpolationTargetIndexSet({});
+  const threshold = getInvalidPThreshold();
+  let marked=0, lowNoFlag=0, checked=0;
+  for (const idx of targetSet) {
+    const raw = state.rawRows[idx];
+    if (!raw) continue;
+    const p = parseNumber(raw[m.p]);
+    if (!isLowPValue(p, threshold)) continue;
+    checked++;
+    const flags = rawOperationalFlags(raw, m);
+    if (flags.outage || flags.transfer || flags.abnormal) {
+      raw['bo_khoi_huan_luyen'] = '1';
+      const reason = flags.outage ? 'cat dien/su co' : (flags.transfer ? 'chuyen tai' : 'bat thuong');
+      raw['ghi_chu_xu_ly'] = `${raw['ghi_chu_xu_ly'] || ''} LV5.3 giu P thap do ${reason}, bo khoi huan luyen`.trim();
+      marked++;
+    } else {
+      lowNoFlag++;
+    }
+  }
+  normalizeRows(); renderEditorTable(); previewData(); markEditorDirty(true);
+  $('interpolationInfo').innerHTML = `<span class="pill ok">Đã bỏ khỏi huấn luyện ${marked} dòng P thấp có cờ vận hành</span><span class="pill ${lowNoFlag?'warn':''}">${lowNoFlag} dòng P thấp chưa có cờ: nên nội suy hoặc đánh dấu sự kiện</span><span class="pill">Đã xét ${checked} dòng P thấp</span>`;
+  log(`LV5.3 xử lý P thấp theo cờ: bỏ huấn luyện ${marked}, còn ${lowNoFlag} dòng P thấp chưa có cờ.`);
+}
+
+function getInterpolationTargetIndexSet(options={}) {
+  const selected = [...(state.editor?.selected || new Set())].filter(i => i >= 0 && i < state.rawRows.length);
+  if (selected.length) return new Set(selected);
+  if (options.selectedOnly) return new Set();
+  return new Set(getEditorFilteredIndices());
+}
+
 function interpolateMissingTimestamps() {
   if (!state.headers.length) throw new Error('Chưa có dữ liệu.');
   const m = readMap();
@@ -1534,8 +1669,13 @@ function interpolateMissingTimestamps() {
   const maxGap = Math.max(1, Math.floor(parseNumber($('interpMaxGap')?.value) || 12));
   const syntheticCol = 'du_lieu_noi_suy', noteCol='ghi_chu_xu_ly';
   addProcessColumns();
+
+  // Khi người dùng đang chọn dòng có P = 0/trống/lỗi rồi bấm "Bổ sung mốc thiếu",
+  // xử lý luôn các dòng đã chọn để tránh hiểu nhầm giữa "thiếu mốc thời gian" và "thiếu giá trị P".
+  const fixedSelectedBadP = state.editor.selected.size ? fillInvalidP({silent:true, selectedOnly:true}) : 0;
+
   const groups = groupRowsByStationRaw();
-  let added=0, skipped=0;
+  let added=0, skipped=0, skippedByDate=0;
   for (const [station, arr] of groups) {
     if (scope === 'current' && stationFilter !== '__ALL__' && station !== stationFilter) continue;
     const expected = $('expectedInterval')?.value !== 'auto' ? parseNumber($('expectedInterval')?.value) : detectIntervalMinutes(arr.map(x => ({time:x.time,p:x.p})));
@@ -1548,6 +1688,7 @@ function interpolateMissingTimestamps() {
       if (miss > maxGap) { skipped += miss; continue; }
       for (let k=1; k<=miss; k++) {
         const t = new Date(prev.time.getTime() + k*interval*60000);
+        if (!editorDateFilterPassTime(t)) { skippedByDate++; continue; }
         const row = {};
         state.headers.forEach(h => row[h] = '');
         row[m.time] = fmtTime(t);
@@ -1564,41 +1705,79 @@ function interpolateMissingTimestamps() {
         if (m.outage) row[m.outage] = '0';
         if (m.transfer) row[m.transfer] = '0';
         row[syntheticCol] = '1';
-        row[noteCol] = `LV5 noi suy moc thieu ${method}`;
+        row[noteCol] = `LV5.3 noi suy moc thieu ${method}`;
         state.rawRows.push(row); added++;
       }
     }
   }
-  state.rawRows.sort((a,b) => (parseTime(a[m.time]) || 0) - (parseTime(b[m.time]) || 0));
+  state.rawRows.sort((a,b) => {
+    const ta = parseTime(a[m.time]) || 0, tb = parseTime(b[m.time]) || 0;
+    if (ta - tb) return ta - tb;
+    const sa = m.station ? String(a[m.station] || '') : '';
+    const sb = m.station ? String(b[m.station] || '') : '';
+    return sa.localeCompare(sb, 'vi');
+  });
   normalizeRows(); applyDataInfo(); renderEditorTable(); previewData(); markEditorDirty(true);
-  $('interpolationInfo').innerHTML = `<span class="pill ok">Đã bổ sung ${added} mốc</span><span class="pill ${skipped?'warn':''}">Bỏ qua ${skipped} mốc do gap quá lớn</span>`;
-  log(`Nội suy mốc thiếu hoàn tất: thêm ${added}, bỏ qua ${skipped}.`);
+  const parts = [
+    `<span class="pill ok">Đã bổ sung ${added} mốc thời gian thiếu</span>`,
+    `<span class="pill ok">Đã nội suy ${fixedSelectedBadP} giá trị P trống/lỗi/P thấp cần nội suy trong dòng đã chọn</span>`,
+    `<span class="pill ${skipped?'warn':''}">Bỏ qua ${skipped} mốc do gap quá lớn</span>`
+  ];
+  if (skippedByDate) parts.push(`<span class="pill warn">Bỏ qua ${skippedByDate} mốc ngoài bộ lọc ngày</span>`);
+  $('interpolationInfo').innerHTML = parts.join('');
+  log(`Nội suy hoàn tất: thêm ${added} mốc, sửa ${fixedSelectedBadP} P trống/lỗi/P thấp cần nội suy, bỏ qua ${skipped}.`);
 }
 
-function fillInvalidP() {
+function fillInvalidP(options={}) {
   const m = readMap();
   if (!m.time || !m.p) throw new Error('Cần ánh xạ thời gian/P.');
   addProcessColumns();
-  let fixed=0;
+  const targetSet = getInterpolationTargetIndexSet(options);
+  if (!targetSet.size) {
+    if (!options.silent) {
+      $('interpolationInfo').innerHTML = '<span class="pill warn">Chưa có dòng nào trong phạm vi xử lý. Hãy chọn dòng hoặc lọc ngày trước.</span>';
+      log('Chưa có dòng nào để nội suy P.');
+    }
+    return 0;
+  }
+  const stationFilter = $('stationSelect')?.value || '__ALL__';
+  const scope = $('interpScope')?.value || 'current';
+  const threshold = getInvalidPThreshold();
   const groups = groupRowsByStationRaw();
+  let fixed=0, considered=0;
   for (const [station, arr] of groups) {
+    if (scope === 'current' && stationFilter !== '__ALL__' && station !== stationFilter) continue;
+    const interval = detectIntervalMinutes(arr.map(x=>({time:x.time,p:x.p}))) || 60;
     for (let i=0;i<arr.length;i++) {
       const item = arr[i];
-      if (Number.isFinite(item.p)) continue;
-      let l=i-1; while(l>=0 && !Number.isFinite(arr[l].p)) l--;
-      let r=i+1; while(r<arr.length && !Number.isFinite(arr[r].p)) r++;
+      if (!targetSet.has(item.rawIndex)) continue;
+      if (!editorDateFilterPassTime(item.time)) continue;
+      considered++;
+      if (!isBadPForInterpolation(item.p, item.raw, m, threshold)) continue;
+      let l=i-1; while(l>=0 && isBadPForInterpolation(arr[l].p, arr[l].raw, m, threshold)) l--;
+      let r=i+1; while(r<arr.length && isBadPForInterpolation(arr[r].p, arr[r].raw, m, threshold)) r++;
       let val=NaN;
-      if (l>=0 && r<arr.length) val = inferPForMissing('linear', arr, l, r, item.time, detectIntervalMinutes(arr.map(x=>({time:x.time,p:x.p}))));
-      else if (l>=0) val = arr[l].p;
-      else if (r<arr.length) val = arr[r].p;
+      const method = $('interpMethod')?.value || 'linear';
+      if (method === 'day' || method === 'week') val = inferPForMissing(method, arr, l>=0?l:i, r<arr.length?r:i, item.time, interval);
+      if (!Number.isFinite(val)) {
+        if (l>=0 && r<arr.length) val = inferPForMissing('linear', arr, l, r, item.time, interval);
+        else if (l>=0) val = arr[l].p;
+        else if (r<arr.length) val = arr[r].p;
+      }
       if (Number.isFinite(val)) {
-        item.raw[m.p] = formatNum(val,3); item.raw['du_lieu_noi_suy'] = '1'; item.raw['ghi_chu_xu_ly'] = 'LV5 noi suy P loi/trong'; fixed++;
+        item.raw[m.p] = formatNum(val,3);
+        item.raw['du_lieu_noi_suy'] = '1';
+        item.raw['ghi_chu_xu_ly'] = `LV5.3 noi suy P loi/trong/<=nguong tu ${Number.isFinite(threshold)?threshold:'NaN'}`;
+        fixed++;
       }
     }
   }
   normalizeRows(); renderEditorTable(); previewData(); markEditorDirty(true);
-  $('interpolationInfo').innerHTML = `<span class="pill ok">Đã nội suy ${fixed} giá trị P lỗi/trống</span>`;
-  log(`Đã nội suy ${fixed} giá trị P lỗi/trống.`);
+  if (!options.silent) {
+    $('interpolationInfo').innerHTML = `<span class="pill ok">Đã nội suy ${fixed} giá trị P trống/lỗi/P thấp cần nội suy</span><span class="pill">Đã xét ${considered} dòng trong phạm vi chọn/lọc</span>`;
+    log(`Đã nội suy ${fixed} giá trị P trống/lỗi/P thấp cần nội suy trên ${considered} dòng được xét.`);
+  }
+  return fixed;
 }
 
 function similarDayPrediction(series, idx, nPerDay) {
@@ -1915,7 +2094,7 @@ function applyAppMode() {
   const mode = $('appMode')?.value || 'external'; state.appMode = mode;
   document.querySelectorAll('.modeExternal').forEach(el => el.classList.toggle('hideByMode', mode === 'scada'));
   const txt = mode === 'scada' ? 'SCADA: chỉ dự báo/cảnh báo' : 'Mạng ngoài: hiệu chỉnh/huấn luyện';
-  $('versionInfo').innerHTML = `<span class="pill modeBadge">LV5</span><span class="pill">${txt}</span>`;
+  $('versionInfo').innerHTML = `<span class="pill modeBadge">LV5.3</span><span class="pill">${txt}</span>`;
 }
 
 async function forceUpdateApp() {
@@ -2058,4 +2237,4 @@ $('editorBox').addEventListener('change', e => {
 
 fillColumnSelects([]);
 renderEditorTable();
-log('Sẵn sàng LV5. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON. Có thể lọc theo ngày, chọn nhiều dòng, điền nhanh nhiệt độ/cờ vận hành rồi huấn luyện hoặc nạp model.');
+log('Sẵn sàng LV5.3. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON. Có thể lọc theo ngày, chọn nhiều dòng, điền nhanh nhiệt độ/cờ vận hành rồi huấn luyện hoặc nạp model.');

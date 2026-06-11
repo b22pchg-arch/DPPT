@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scada-load-forecast-pwa-lv5-20260611-01';
+const CACHE_NAME = 'scada-load-forecast-pwa-lv5-3-20260611-01';
 const APP_ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const APP_ASSETS = [
   './sample_load_data.csv',
   './sample_load_data.xlsx',
   './libs/pako.min.js',
+  './libs/xlsx.full.min.js',
   './libs/sheetjs-xlsx-lite.js',
   './icons/icon-72.png',
   './icons/icon-96.png',
