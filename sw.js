@@ -1,25 +1,13 @@
-const CACHE_NAME = 'scada-load-forecast-pwa-lv4-icons-20260611';
+const CACHE_NAME = 'scada-load-forecast-pwa-lv3-20260611';
 const APP_ASSETS = [
   './',
   './index.html',
   './app.js',
   './manifest.webmanifest',
-  './favicon.ico',
-  './favicon.svg',
   './sample_load_data.csv',
   './sample_load_data.xlsx',
   './libs/pako.min.js',
-  './libs/sheetjs-xlsx-lite.js',
-  './icons/icon-72.png',
-  './icons/icon-96.png',
-  './icons/icon-128.png',
-  './icons/icon-144.png',
-  './icons/icon-152.png',
-  './icons/icon-180.png',
-  './icons/icon-192.png',
-  './icons/icon-384.png',
-  './icons/icon-512.png',
-  './icons/icon-512-maskable.png'
+  './libs/sheetjs-xlsx-lite.js'
 ];
 
 self.addEventListener('install', event => {
