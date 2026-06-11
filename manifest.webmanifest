@@ -1,7 +1,7 @@
 {
-  "name": "SCADA Load Forecast Offline PWA LV5.3",
+  "name": "SCADA Load Forecast Offline PWA LV5.4",
   "short_name": "LoadForecast",
-  "description": "Dự báo phụ tải SCADA offline LV5.3: đọc Excel/CSV, hiệu chỉnh dữ liệu, kiểm tra chất lượng, nội suy, huấn luyện GBDT, mô hình lai, cảnh báo ngưỡng, lưu cấu hình và ép cập nhật cache.",
+  "description": "Dự báo phụ tải SCADA offline LV5.4: đọc Excel/CSV, hiệu chỉnh dữ liệu, kiểm tra chất lượng, nội suy, huấn luyện GBDT, mô hình lai, cảnh báo ngưỡng, lưu cấu hình và ép cập nhật cache.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b1220",

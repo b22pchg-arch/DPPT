@@ -108,9 +108,9 @@ http://localhost:8080/index.html
 
 Bản này nhúng bộ đọc `.xlsx/.xlsm` nhẹ. File `.xls` nhị phân cũ nên lưu lại thành `.xlsx` hoặc CSV UTF-8 trước khi đưa vào app. Nếu cần đọc `.xls` trực tiếp, có thể thay bằng SheetJS chính thức `xlsx.full.min.js` nội bộ.
 
-## LV5.2 - Tích hợp đường dẫn SheetJS full
+## LV5.4 - Tích hợp đường dẫn SheetJS full
 
-Bản LV5.2 đã thêm sẵn đường dẫn nội bộ:
+Bản LV5.4 đã thêm sẵn đường dẫn nội bộ:
 
 ```text
 libs/xlsx.full.min.js
@@ -140,9 +140,9 @@ https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
 Sau khi thay file, hãy bấm nút **Ép cập nhật bản mới** trong ứng dụng để xóa cache PWA cũ.
 
 
-## LV5.2 - Sửa chức năng nội suy
+## LV5.4 - Sửa chức năng nội suy
 
-Bản LV5.2 sửa phần nội suy theo thực tế vận hành:
+Bản LV5.4 sửa phần nội suy theo thực tế vận hành:
 
 - Nút **Nội suy P trống/lỗi trong dòng hiện có** xử lý cả P trống, P sai định dạng và P <= ngưỡng P thấp bất thường.
 - Nếu đã chọn dòng rồi bấm **Bổ sung mốc thiếu**, app sẽ vừa bổ sung mốc thời gian thiếu, vừa tự nội suy P lỗi/trống/<= ngưỡng trong các dòng đã chọn.
@@ -152,9 +152,9 @@ Bản LV5.2 sửa phần nội suy theo thực tế vận hành:
 Ví dụ: nếu một mốc 21:00 có P = 0 và ngưỡng P thấp bất thường đặt là 0, hãy chọn dòng đó rồi bấm **Nội suy P trống/lỗi trong dòng hiện có** hoặc **Bổ sung mốc thiếu**. App sẽ lấy mốc hợp lệ trước/sau để nội suy và đánh dấu `du_lieu_noi_suy = 1`.
 
 
-## LV5.3 - Xử lý P=0/P thấp theo cờ vận hành
+## LV5.4 - Xử lý P=0/P thấp theo cờ vận hành
 
-Bản LV5.3 sửa logic theo thực tế vận hành:
+Bản LV5.4 sửa logic theo thực tế vận hành:
 
 - `P = 0` hoặc P thấp **không luôn luôn là lỗi đo**.
 - Nếu dòng có cờ `cắt điện/sự cố`, `chuyển tải` hoặc `bất thường`, app mặc định **giữ số đo gốc** và có thể đánh dấu `bo_khoi_huan_luyen = 1` để model không học sai.
@@ -167,3 +167,12 @@ Bản LV5.3 sửa logic theo thực tế vận hành:
 - Kiểm tra chất lượng có cảnh báo riêng cho trường hợp `chuyển tải` nhưng chưa thấy lộ/trạm khác tăng tải cùng thời điểm.
 
 Khuyến nghị: với dữ liệu để huấn luyện dự báo, các dòng cắt điện/chuyển tải nên **bỏ khỏi huấn luyện** hoặc **nội suy thành phụ tải nền giả định**, không để model học trực tiếp giá trị 0 như một ngày bình thường.
+
+
+## LV5.4 - Sửa logic nội suy P=0/P thấp
+
+- P=0/P thấp không mặc định là lỗi; app xét thêm cờ `cắt điện/sự cố`, `chuyển tải`, `bất thường`.
+- Chế độ **Nội suy cả P thấp dù có cờ vận hành** sẽ ép nội suy dòng được chọn hoặc dòng đang lọc.
+- Khi nội suy P, giá trị cũ được lưu vào cột `p_goc`.
+- Nếu dòng có cờ vận hành, app vẫn đánh dấu `bo_khoi_huan_luyen=1` để model không học sự kiện vận hành như quy luật bình thường; nhưng P đã nội suy giúp chuỗi thời gian và các biến lag không bị kéo về 0.
+- Nút **Bổ sung mốc thiếu + xử lý P lỗi đã chọn** giờ xử lý cả hai trường hợp: thiếu mốc thời gian và dòng đã có mốc nhưng P trống/lỗi/P=0/P thấp.

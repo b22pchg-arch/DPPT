@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="LoadForecast" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>SCADA Load Forecast Offline PWA LV5.3</title>
+  <title>SCADA Load Forecast Offline PWA LV5.4</title>
   <style>
     :root{
       --bg:#0b1220;--panel:#111c2f;--panel2:#16243b;--text:#e5edf7;--muted:#9fb0c6;
@@ -52,7 +52,7 @@
 </head>
 <body>
 <header>
-  <h1>SCADA Load Forecast Offline PWA LV5.3</h1>
+  <h1>SCADA Load Forecast Offline PWA LV5.4</h1>
   <div class="sub">LV5.3: xử lý P=0/P thấp theo cờ cắt điện/chuyển tải/bất thường; vẫn giữ đủ 8 nhóm LV5: kiểm tra chất lượng dữ liệu, nội suy/mất mẫu, dự báo theo trạm/lộ, mô hình lai GBDT + Similar Day + bù sai số, biểu đồ thực tế/dự báo/sai số, cảnh báo ngưỡng vận hành, lưu/nạp cấu hình offline kèm nút <b>Ép cập nhật bản mới</b>, và chế độ <b>Mạng ngoài / SCADA</b>. Không CDN, không server ngoài, không pwa.js.</div>
 </header>
 <main>
@@ -214,16 +214,16 @@
         <div class="span3"><label>Phạm vi</label><select id="interpScope"><option value="current">Trạm/lộ đang chọn</option><option value="all">Tất cả trạm/lộ</option></select></div>
         <div class="span3"><label>Phương pháp P</label><select id="interpMethod"><option value="linear">Tuyến tính giữa 2 mốc</option><option value="prev">Giữ giá trị trước</option><option value="day">Ưu tiên cùng giờ hôm trước</option><option value="week">Ưu tiên cùng giờ tuần trước</option></select></div>
         <div class="span3"><label>Số mốc thiếu tối đa/gap</label><input id="interpMaxGap" type="number" value="12" min="1" max="500"></div>
-        <div class="span3"><label>&nbsp;</label><button class="warn" id="interpolateBtn">Bổ sung mốc thiếu</button></div>
+        <div class="span3"><label>&nbsp;</label><button class="warn" id="interpolateBtn">Bổ sung mốc thiếu + xử lý P lỗi đã chọn</button></div>
         <div class="span6"><label>Cách xử lý P=0/P thấp</label><select id="lowPHandlingMode"><option value="auto">Tự động: có cờ cắt điện/chuyển tải/bất thường thì giữ số đo và bỏ huấn luyện</option><option value="fill_all">Nội suy cả P thấp dù có cờ vận hành</option><option value="exclude_events">Không nội suy dòng có cờ vận hành, chỉ bỏ huấn luyện</option></select></div>
       </div>
       <div class="row" style="margin-top:10px">
-        <button class="secondary" id="fillInvalidPBtn">Nội suy P trống/lỗi/P thấp cần nội suy</button>
-        <button class="secondary" id="handleLowPEventsBtn">Xử lý P=0/P thấp theo cờ vận hành</button>
+        <button class="secondary" id="fillInvalidPBtn">Nội suy P dòng đang chọn / đang lọc</button>
+        <button class="secondary" id="handleLowPEventsBtn">Áp dụng quy tắc P=0/P thấp</button>
         <button class="secondary" id="addProcessColumnsBtn">Thêm cột xử lý</button>
       </div>
       <div id="interpolationInfo" class="statusBox" style="margin-top:10px"><span class="pill">Chưa thực hiện</span></div>
-      <div class="compactNote">Mốc bổ sung/nội suy được đánh dấu bằng <b>du_lieu_noi_suy</b>, <b>ghi_chu_xu_ly</b>. Dòng có cờ cắt điện/chuyển tải/bất thường có thể được giữ nguyên và đánh dấu <b>bo_khoi_huan_luyen</b> để model không học sai.</div>
+      <div class="compactNote">Mốc bổ sung/nội suy được đánh dấu bằng <b>du_lieu_noi_suy</b>, <b>ghi_chu_xu_ly</b>. Khi nội suy P, app lưu giá trị cũ vào <b>p_goc</b>. Dòng có cờ cắt điện/chuyển tải/bất thường có thể vẫn bị <b>bo_khoi_huan_luyen</b> để model không học sai, nhưng P đã nội suy sẽ giúp chuỗi thời gian/lag không bị gãy.</div>
     </div>
 
     <div class="card span5 modeExternal">

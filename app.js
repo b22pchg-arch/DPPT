@@ -1365,7 +1365,7 @@ function loadTextFile(file, cb) {
 state.qualityIssues = state.qualityIssues || [];
 state.thresholds = state.thresholds || [];
 state.appMode = state.appMode || 'external';
-state.lv5 = state.lv5 || {version:'LV5.3'};
+state.lv5 = state.lv5 || {version:'LV5.4'};
 
 function getHybridWeights() {
   const read = id => parseNumber($(id)?.value);
@@ -1385,7 +1385,7 @@ function getHybridWeights() {
 
 function addProcessColumns() {
   let added = [];
-  for (const name of ['du_lieu_noi_suy','ghi_chu_xu_ly','bo_khoi_huan_luyen']) {
+  for (const name of ['p_goc','du_lieu_noi_suy','ghi_chu_xu_ly','bo_khoi_huan_luyen']) {
     if (!state.headers.includes(name)) {
       state.headers.push(name);
       state.rawRows.forEach(r => { r[name] = ''; });
@@ -2129,6 +2129,7 @@ function lv5BindEvents() {
   on('addProcessColumnsBtn','click', () => { addProcessColumns(); renderEditorTable(); });
   on('interpolateBtn','click', () => { try { interpolateMissingTimestamps(); } catch(e) { log('Lỗi nội suy mốc thiếu: '+e.message); } });
   on('fillInvalidPBtn','click', () => { try { fillInvalidP(); } catch(e) { log('Lỗi nội suy P: '+e.message); } });
+  on('handleLowPEventsBtn','click', () => { try { markLowPOperationalEventsForTraining(); } catch(e) { log('Lỗi xử lý P thấp theo cờ vận hành: '+e.message); } });
   on('trainAllStationsBtn','click', () => trainAllStations().catch(e => { $('trainBtn').disabled=false; log('Lỗi huấn luyện bundle: ' + e.message); }));
   on('forecastAllBtn','click', () => { try { forecastAllStations(); } catch(e) { log('Lỗi dự báo tất cả: '+e.message); } });
   on('applyThresholdBtn','click', () => { const rows=parseThresholdText(); renderThresholdAlerts([]); saveSettingsToLocal(); log(`Đã áp dụng ${rows.length} dòng ngưỡng cảnh báo.`); });
@@ -2237,4 +2238,269 @@ $('editorBox').addEventListener('change', e => {
 
 fillColumnSelects([]);
 renderEditorTable();
-log('Sẵn sàng LV5.3. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON. Có thể lọc theo ngày, chọn nhiều dòng, điền nhanh nhiệt độ/cờ vận hành rồi huấn luyện hoặc nạp model.');
+log('Sẵn sàng LV5.4. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON. Có thể lọc theo ngày, chọn nhiều dòng, điền nhanh nhiệt độ/cờ vận hành rồi huấn luyện hoặc nạp model.');
+
+
+// ======================== LV5.4 INTERPOLATION OVERRIDE ========================
+// Mục tiêu LV5.4:
+// 1) P = 0/P thấp không mặc định là lỗi; xét theo cờ vận hành.
+// 2) Nếu người dùng chọn "Nội suy cả P thấp dù có cờ vận hành" thì ÉP nội suy dòng đã chọn/đang lọc.
+// 3) Nếu giữ sự kiện vận hành thì đánh dấu bo_khoi_huan_luyen=1 để model không học sự kiện như quy luật bình thường.
+// 4) Khi nội suy P, lưu P cũ vào p_goc để truy vết.
+
+function addProcessColumns() {
+  let added = [];
+  for (const name of ['p_goc','du_lieu_noi_suy','ghi_chu_xu_ly','bo_khoi_huan_luyen']) {
+    if (!state.headers.includes(name)) {
+      state.headers.push(name);
+      state.rawRows.forEach(r => { r[name] = ''; });
+      added.push(name);
+    }
+  }
+  fillColumnSelects(state.headers);
+  if (typeof refreshQuickCustomColumns === 'function') refreshQuickCustomColumns();
+  if (added.length) log('Đã thêm cột xử lý LV5.4: ' + added.join(', '));
+  return added;
+}
+
+function getOperationReason(flags) {
+  const reasons = [];
+  if (flags.outage) reasons.push('cat dien/su co');
+  if (flags.transfer) reasons.push('chuyen tai');
+  if (flags.abnormal) reasons.push('bat thuong');
+  if (flags.excludeTrain) reasons.push('da bo khoi huan luyen');
+  return reasons.join(' + ') || '';
+}
+
+function shouldUseAsReferenceP(item, m, threshold) {
+  if (!item || !Number.isFinite(item.p)) return false;
+  if (Number.isFinite(threshold) && item.p <= threshold) return false;
+  const flags = rawOperationalFlags(item.raw, m);
+  // Không dùng các dòng sự kiện vận hành làm điểm neo nội suy, tránh kéo sai xu hướng.
+  if (flags.abnormal || flags.outage || flags.transfer || flags.excludeTrain) return false;
+  return true;
+}
+
+function findLeftReference(arr, startIdx, m, threshold) {
+  for (let i=startIdx; i>=0; i--) if (shouldUseAsReferenceP(arr[i], m, threshold)) return i;
+  return -1;
+}
+
+function findRightReference(arr, startIdx, m, threshold) {
+  for (let i=startIdx; i<arr.length; i++) if (shouldUseAsReferenceP(arr[i], m, threshold)) return i;
+  return -1;
+}
+
+function inferCleanPValue(method, arr, idx, m, threshold, interval) {
+  const item = arr[idx];
+  const leftIdx = findLeftReference(arr, idx - 1, m, threshold);
+  const rightIdx = findRightReference(arr, idx + 1, m, threshold);
+
+  if (method === 'day' || method === 'week') {
+    const backMs = (method === 'day' ? 24 : 24*7) * 3600*1000;
+    const want = item.time.getTime() - backMs;
+    const found = arr.find(x => Math.abs(x.time.getTime() - want) <= interval*60000*0.51 && shouldUseAsReferenceP(x, m, threshold));
+    if (found) return found.p;
+  }
+  if (method === 'prev' && leftIdx >= 0) return arr[leftIdx].p;
+
+  if (leftIdx >= 0 && rightIdx >= 0) {
+    const left = arr[leftIdx], right = arr[rightIdx];
+    const denom = right.time - left.time;
+    if (denom > 0) {
+      const f = (item.time - left.time) / denom;
+      return left.p + (right.p - left.p) * f;
+    }
+  }
+  if (leftIdx >= 0) return arr[leftIdx].p;
+  if (rightIdx >= 0) return arr[rightIdx].p;
+  return NaN;
+}
+
+function lowPActionForRow(raw, m, p, threshold) {
+  const original = m?.p ? String(raw?.[m.p] ?? '').trim() : '';
+  const flags = rawOperationalFlags(raw, m);
+  const hasOp = !!(flags.abnormal || flags.outage || flags.transfer || flags.excludeTrain);
+  const mode = $('lowPHandlingMode')?.value || 'auto';
+  if (!original || !Number.isFinite(p)) return {action:'interpolate', reason:'P trong/sai dinh dang', hasOp, flags};
+  if (Number.isFinite(threshold) && p <= threshold) {
+    if (mode === 'fill_all') return {action:'interpolate', reason: hasOp ? ('P thap co co van hanh: ' + getOperationReason(flags)) : 'P thap khong co co van hanh', hasOp, flags};
+    if (hasOp) return {action:'exclude', reason:'P thap co co van hanh: ' + getOperationReason(flags), hasOp, flags};
+    return {action:'interpolate', reason:'P thap khong co co van hanh', hasOp, flags};
+  }
+  return {action:'keep', reason:'P hop le', hasOp, flags};
+}
+
+function fillInvalidP(options={}) {
+  const m = readMap();
+  if (!m.time || !m.p) throw new Error('Cần ánh xạ thời gian/P.');
+  addProcessColumns();
+  const targetSet = getInterpolationTargetIndexSet(options);
+  if (!targetSet.size) {
+    if (!options.silent) {
+      $('interpolationInfo').innerHTML = '<span class="pill warn">Chưa có dòng nào trong phạm vi xử lý. Hãy chọn dòng hoặc lọc ngày trước.</span>';
+      log('Chưa có dòng nào để nội suy P.');
+    }
+    return 0;
+  }
+  const stationFilter = $('stationSelect')?.value || '__ALL__';
+  const scope = $('interpScope')?.value || 'current';
+  const method = $('interpMethod')?.value || 'linear';
+  const threshold = getInvalidPThreshold();
+  const groups = groupRowsByStationRaw();
+  let fixed=0, considered=0, excluded=0, kept=0, noRef=0;
+  for (const [station, arr] of groups) {
+    if (scope === 'current' && stationFilter !== '__ALL__' && station !== stationFilter) continue;
+    const interval = detectIntervalMinutes(arr.map(x=>({time:x.time,p:x.p}))) || 60;
+    for (let i=0; i<arr.length; i++) {
+      const item = arr[i];
+      if (!targetSet.has(item.rawIndex)) continue;
+      if (!editorDateFilterPassTime(item.time)) continue;
+      considered++;
+      const action = lowPActionForRow(item.raw, m, item.p, threshold);
+      if (action.action === 'keep') { kept++; continue; }
+
+      if (action.action === 'exclude') {
+        item.raw['bo_khoi_huan_luyen'] = '1';
+        item.raw['ghi_chu_xu_ly'] = `${item.raw['ghi_chu_xu_ly'] || ''} LV5.4 giu P goc, bo khoi huan luyen (${action.reason})`.trim();
+        excluded++;
+        continue;
+      }
+
+      const val = inferCleanPValue(method, arr, i, m, threshold, interval);
+      if (!Number.isFinite(val)) { noRef++; continue; }
+      if (!item.raw['p_goc']) item.raw['p_goc'] = String(item.raw[m.p] ?? '');
+      item.raw[m.p] = formatNum(val, 3);
+      item.raw['du_lieu_noi_suy'] = '1';
+      // Nếu dòng có cờ vận hành, vẫn bỏ khỏi huấn luyện, nhưng P sạch giúp các lag/trend xung quanh không bị kéo về 0.
+      if (action.hasOp) item.raw['bo_khoi_huan_luyen'] = '1';
+      item.raw['ghi_chu_xu_ly'] = `${item.raw['ghi_chu_xu_ly'] || ''} LV5.4 noi suy P tu ${method}; ${action.reason}`.trim();
+      fixed++;
+    }
+  }
+  normalizeRows(); renderEditorTable(); previewData(); markEditorDirty(true);
+  if (!options.silent) {
+    $('interpolationInfo').innerHTML = [
+      `<span class="pill ok">Đã nội suy ${fixed} giá trị P</span>`,
+      `<span class="pill ${excluded?'warn':''}">Giữ P gốc & bỏ huấn luyện ${excluded} dòng có cờ vận hành</span>`,
+      `<span class="pill">Đã xét ${considered} dòng</span>`,
+      `<span class="pill ${noRef?'warn':''}">Không đủ điểm neo ${noRef} dòng</span>`,
+      `<span class="pill">Giữ nguyên ${kept} dòng P hợp lệ</span>`
+    ].join('');
+    log(`LV5.4 nội suy P: sửa ${fixed}, bỏ huấn luyện ${excluded}, không đủ điểm neo ${noRef}, xét ${considered}.`);
+  }
+  return fixed;
+}
+
+function markLowPOperationalEventsForTraining() {
+  const m = readMap();
+  if (!m.p) throw new Error('Cần ánh xạ cột Công suất P.');
+  addProcessColumns();
+  const targetSet = getInterpolationTargetIndexSet({});
+  const threshold = getInvalidPThreshold();
+  const mode = $('lowPHandlingMode')?.value || 'auto';
+  // Nếu chọn fill_all, nút này cũng sẽ nội suy luôn, đúng như tên chế độ.
+  if (mode === 'fill_all') {
+    const fixed = fillInvalidP({silent:true});
+    $('interpolationInfo').innerHTML = `<span class="pill ok">Chế độ ép nội suy: đã nội suy ${fixed} dòng P=0/P thấp trong phạm vi chọn/lọc</span><span class="pill">Giá trị cũ đã lưu vào p_goc</span>`;
+    log(`LV5.4 áp dụng quy tắc P thấp ở chế độ ép nội suy: ${fixed} dòng.`);
+    return;
+  }
+  let marked=0, lowNoFlag=0, checked=0, nonLow=0;
+  for (const idx of targetSet) {
+    const raw = state.rawRows[idx];
+    if (!raw) continue;
+    const p = parseNumber(raw[m.p]);
+    if (!isLowPValue(p, threshold)) { nonLow++; continue; }
+    checked++;
+    const flags = rawOperationalFlags(raw, m);
+    if (flags.outage || flags.transfer || flags.abnormal) {
+      raw['bo_khoi_huan_luyen'] = '1';
+      const reason = getOperationReason(flags);
+      raw['ghi_chu_xu_ly'] = `${raw['ghi_chu_xu_ly'] || ''} LV5.4 giu P thap do ${reason}, bo khoi huan luyen`.trim();
+      marked++;
+    } else {
+      // Không có cờ vận hành: nên nội suy ngay để tránh model học P=0 giả.
+      lowNoFlag++;
+    }
+  }
+  let fixedNoFlag = 0;
+  if (lowNoFlag) fixedNoFlag = fillInvalidP({silent:true});
+  normalizeRows(); renderEditorTable(); previewData(); markEditorDirty(true);
+  $('interpolationInfo').innerHTML = `<span class="pill ok">Đã bỏ khỏi huấn luyện ${marked} dòng P thấp có cờ vận hành</span><span class="pill ${fixedNoFlag?'ok':'warn'}">Đã nội suy ${fixedNoFlag} dòng P thấp không có cờ/hoặc theo quy tắc</span><span class="pill">Đã xét ${checked} dòng P thấp</span><span class="pill">Bỏ qua ${nonLow} dòng P hợp lệ</span>`;
+  log(`LV5.4 xử lý P thấp: bỏ huấn luyện ${marked}, nội suy ${fixedNoFlag}, xét ${checked}.`);
+}
+
+function interpolateMissingTimestamps() {
+  if (!state.headers.length) throw new Error('Chưa có dữ liệu.');
+  const m = readMap();
+  if (!m.time || !m.p) throw new Error('Cần ánh xạ cột thời gian và P.');
+  const stationFilter = $('stationSelect')?.value || '__ALL__';
+  const scope = $('interpScope')?.value || 'current';
+  const method = $('interpMethod')?.value || 'linear';
+  const maxGap = Math.max(1, Math.floor(parseNumber($('interpMaxGap')?.value) || 12));
+  const syntheticCol = 'du_lieu_noi_suy', noteCol='ghi_chu_xu_ly';
+  addProcessColumns();
+
+  // Luôn xử lý P trống/lỗi/P=0/P thấp trong phạm vi chọn/lọc trước khi bổ sung mốc thời gian.
+  // Nhờ vậy người dùng chọn dòng P=0 rồi bấm nút màu cam cũng sẽ có kết quả rõ ràng.
+  const fixedBadP = fillInvalidP({silent:true});
+
+  const groups = groupRowsByStationRaw();
+  let added=0, skipped=0, skippedByDate=0;
+  for (const [station, arr] of groups) {
+    if (scope === 'current' && stationFilter !== '__ALL__' && station !== stationFilter) continue;
+    const expected = $('expectedInterval')?.value !== 'auto' ? parseNumber($('expectedInterval')?.value) : detectIntervalMinutes(arr.map(x => ({time:x.time,p:x.p})));
+    const interval = expected || 60;
+    for (let i=1; i<arr.length; i++) {
+      const prev = arr[i-1], next = arr[i];
+      const gap = (next.time - prev.time)/60000;
+      const miss = Math.round(gap/interval) - 1;
+      if (miss <= 0) continue;
+      if (miss > maxGap) { skipped += miss; continue; }
+      for (let k=1; k<=miss; k++) {
+        const t = new Date(prev.time.getTime() + k*interval*60000);
+        if (!editorDateFilterPassTime(t)) { skippedByDate++; continue; }
+        const row = {};
+        state.headers.forEach(h => row[h] = '');
+        row[m.time] = fmtTime(t);
+        row[m.p] = formatNum(inferPForMissing(method, arr, i-1, i, t, interval), 3);
+        if (m.station) row[m.station] = station;
+        if (m.temp) {
+          const a = parseNumber(prev.raw[m.temp]), b = parseNumber(next.raw[m.temp]);
+          if (Number.isFinite(a) && Number.isFinite(b)) row[m.temp] = formatNum(a + (b-a)*(k/(miss+1)), 1);
+          else if (Number.isFinite(a)) row[m.temp] = formatNum(a,1);
+        }
+        if (m.rain) row[m.rain] = '0';
+        if (m.holiday) row[m.holiday] = holidayByRules(t) ? '1' : '0';
+        if (m.abnormal) row[m.abnormal] = '0';
+        if (m.outage) row[m.outage] = '0';
+        if (m.transfer) row[m.transfer] = '0';
+        row[syntheticCol] = '1';
+        row[noteCol] = `LV5.4 noi suy moc thieu ${method}`;
+        state.rawRows.push(row); added++;
+      }
+    }
+  }
+  state.rawRows.sort((a,b) => {
+    const ta = parseTime(a[m.time]) || 0, tb = parseTime(b[m.time]) || 0;
+    if (ta - tb) return ta - tb;
+    const sa = m.station ? String(a[m.station] || '') : '';
+    const sb = m.station ? String(b[m.station] || '') : '';
+    return sa.localeCompare(sb, 'vi');
+  });
+  normalizeRows(); applyDataInfo(); renderEditorTable(); previewData(); markEditorDirty(true);
+  const parts = [
+    `<span class="pill ok">Đã nội suy ${fixedBadP} giá trị P trống/lỗi/P=0/P thấp</span>`,
+    `<span class="pill ok">Đã bổ sung ${added} mốc thời gian thiếu</span>`,
+    `<span class="pill ${skipped?'warn':''}">Bỏ qua ${skipped} mốc do gap quá lớn</span>`
+  ];
+  if (skippedByDate) parts.push(`<span class="pill warn">Bỏ qua ${skippedByDate} mốc ngoài bộ lọc ngày</span>`);
+  $('interpolationInfo').innerHTML = parts.join('');
+  log(`LV5.4 nội suy/bổ sung hoàn tất: sửa ${fixedBadP} P, thêm ${added} mốc, bỏ qua ${skipped}.`);
+}
+
+try {
+  state.lv5.version = 'LV5.4';
+  log('Đã nạp bản sửa nội suy LV5.4: P=0/P thấp được xử lý theo lựa chọn cờ vận hành, có lưu p_goc.');
+} catch(_) {}
