@@ -834,7 +834,7 @@ async function trainGBDT() {
     $('trainBtn').disabled = false;
   }
   const model = {
-    type: 'GBDT_REGRESSION_JS_OFFLINE_LV3',
+    type: 'GBDT_REGRESSION_JS_OFFLINE_LV5',
     createdAt: new Date().toISOString(),
     station: $('stationSelect').value,
     featureNames: ds.featureNames,
@@ -856,8 +856,10 @@ async function trainGBDT() {
   state.trainingResult = {ds, nTrain, yval, predVal, timesVal: ds.times.slice(nTrain), yTrain: ytr, predTrain};
   updateMetrics(mVal, ds.intervalMinutes);
   drawSeries(ds.times.slice(nTrain), yval, predVal, 'Validation thực tế', 'Validation dự báo');
+  updateValidationErrorViews();
   $('exportModelBtn').disabled = false;
   $('forecastBtn').disabled = false;
+  if ($('forecastAllBtn')) $('forecastAllBtn').disabled = false;
   renderModelInfo();
   log(`Hoàn tất huấn luyện. Validation MAE=${formatNum(mVal.mae,3)}, MAPE=${formatNum(mVal.mape,2)}%, RMSE=${formatNum(mVal.rmse,3)}.`);
 }
@@ -1357,6 +1359,609 @@ function loadTextFile(file, cb) {
   reader.readAsText(file, 'utf-8');
 }
 
+
+// ======================== LV5 EXTENSIONS ========================
+state.qualityIssues = state.qualityIssues || [];
+state.thresholds = state.thresholds || [];
+state.appMode = state.appMode || 'external';
+state.lv5 = state.lv5 || {version:'LV5'};
+
+function getHybridWeights() {
+  const read = id => parseNumber($(id)?.value);
+  let w = {
+    gbdt: Number.isFinite(read('wGbdt')) ? read('wGbdt') : 0.50,
+    similar: Number.isFinite(read('wSimilar')) ? read('wSimilar') : 0.25,
+    week: Number.isFinite(read('wWeek')) ? read('wWeek') : 0.15,
+    trend: Number.isFinite(read('wTrend')) ? read('wTrend') : 0.10
+  };
+  const mode = $('forecastBlend')?.value || 'hybrid';
+  if (mode === 'gbdt') w = {gbdt:1, similar:0, week:0, trend:0};
+  if (mode === 'similar') w = {gbdt:0, similar:1, week:0, trend:0};
+  const sum = Object.values(w).filter(Number.isFinite).reduce((a,b)=>a+Math.max(0,b),0) || 1;
+  Object.keys(w).forEach(k => w[k] = Math.max(0, w[k]) / sum);
+  return w;
+}
+
+function addProcessColumns() {
+  let added = [];
+  for (const name of ['du_lieu_noi_suy','ghi_chu_xu_ly','bo_khoi_huan_luyen']) {
+    if (!state.headers.includes(name)) {
+      state.headers.push(name);
+      state.rawRows.forEach(r => { r[name] = ''; });
+      added.push(name);
+    }
+  }
+  fillColumnSelects(state.headers);
+  refreshQuickCustomColumns();
+  if (added.length) log('Đã thêm cột xử lý: ' + added.join(', '));
+  return added;
+}
+
+function renderQualityReport() {
+  const box = $('qualityBox');
+  const sumBox = $('qualitySummary');
+  if (!box || !sumBox) return;
+  const issues = state.qualityIssues || [];
+  const byType = issues.reduce((m, x) => { m[x.type] = (m[x.type] || 0) + 1; return m; }, {});
+  const parts = [`<span class="pill ${issues.length?'warn':'ok'}">${issues.length} cảnh báo</span>`];
+  Object.entries(byType).forEach(([k,v]) => parts.push(`<span class="pill">${escapeHtml(k)}: ${v}</span>`));
+  sumBox.innerHTML = parts.join('');
+  if (!issues.length) { box.innerHTML = '<table><tbody><tr><td>Không phát hiện lỗi lớn</td></tr></tbody></table>'; return; }
+  const max = Math.max(1, Math.floor(parseNumber($('qualityMaxRows')?.value) || 300));
+  const shown = issues.slice(0, max);
+  let html = '<table><thead><tr><th>Dòng</th><th>Thời gian</th><th>Trạm/Lộ</th><th>Loại lỗi</th><th>Giá trị</th><th>Gợi ý xử lý</th></tr></thead><tbody>';
+  for (const it of shown) {
+    html += `<tr><td>${it.rowIndex != null ? it.rowIndex + 2 : ''}</td><td>${escapeHtml(it.time || '')}</td><td>${escapeHtml(it.station || '')}</td><td>${escapeHtml(it.type)}</td><td>${escapeHtml(it.value ?? '')}</td><td>${escapeHtml(it.suggestion || '')}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  if (issues.length > max) html += `<div class="note" style="padding:8px">Đang hiển thị ${max}/${issues.length} cảnh báo.</div>`;
+  box.innerHTML = html;
+}
+
+function runQualityCheck() {
+  const m = readMap();
+  const issues = [];
+  const spikePct = Math.max(1, parseNumber($('spikePercent')?.value) || 35);
+  const minValidP = parseNumber($('minValidP')?.value);
+  for (let i=0; i<state.rawRows.length; i++) {
+    const raw = state.rawRows[i];
+    const time = m.time ? parseTime(raw[m.time]) : null;
+    const p = m.p ? parseNumber(raw[m.p]) : NaN;
+    const station = m.station ? String(raw[m.station] ?? '').trim() : 'ALL';
+    if (!time) issues.push({rowIndex:i, time:'', station, type:'Sai thời gian', value: raw[m.time], suggestion:'Sửa định dạng ngày giờ hoặc xóa khỏi huấn luyện'});
+    if (!Number.isFinite(p)) issues.push({rowIndex:i, time: time?fmtTime(time):'', station, type:'Thiếu/sai P', value: raw[m.p], suggestion:'Nội suy P hoặc kiểm tra nguồn dữ liệu'});
+    if (Number.isFinite(p) && p < 0) issues.push({rowIndex:i, time:fmtTime(time), station, type:'P âm', value:p, suggestion:'Đánh dấu bất thường hoặc sửa theo số đo đúng'});
+    if (Number.isFinite(p) && Number.isFinite(minValidP) && p <= minValidP) issues.push({rowIndex:i, time:time?fmtTime(time):'', station, type:'P thấp bất thường', value:p, suggestion:'Kiểm tra mất điện/mất tín hiệu/chuyển tải'});
+  }
+  let rows = [];
+  try { normalizeRows(); rows = getSelectedRows(); } catch(_) { rows = state.rows || []; }
+  const groups = new Map();
+  rows.forEach(r => { const k = r.station || 'ALL'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); });
+  const expected = $('expectedInterval')?.value && $('expectedInterval').value !== 'auto' ? parseNumber($('expectedInterval').value) : null;
+  for (const [station, arr0] of groups) {
+    const arr = arr0.slice().sort((a,b)=>a.time-b.time);
+    const interval = expected || detectIntervalMinutes(arr);
+    const seen = new Map();
+    for (let i=0;i<arr.length;i++) {
+      const r = arr[i], key = fmtTime(r.time);
+      if (seen.has(key)) issues.push({rowIndex:r.idx, time:key, station, type:'Trùng mốc thời gian', value:r.p, suggestion:'Giữ một dòng đúng, xóa hoặc đánh dấu dòng trùng'});
+      else seen.set(key, r.idx);
+      if (i > 0) {
+        const prev = arr[i-1];
+        const gap = (r.time - prev.time)/60000;
+        if (gap > interval * 1.5) issues.push({rowIndex:r.idx, time:fmtTime(r.time), station, type:'Mất mốc thời gian', value:`thiếu khoảng ${Math.round(gap/interval)-1} mốc`, suggestion:'Bổ sung mốc thiếu bằng nội suy'});
+        const base = Math.max(Math.abs(prev.p), 0.001);
+        const pct = Math.abs(r.p - prev.p)/base*100;
+        if (Number.isFinite(pct) && pct >= spikePct) issues.push({rowIndex:r.idx, time:fmtTime(r.time), station, type:'P tăng/giảm đột biến', value:`${formatNum(pct,1)}%`, suggestion:'Kiểm tra sự cố/chuyển tải hoặc đánh dấu bất thường'});
+      }
+    }
+  }
+  state.qualityIssues = issues;
+  renderQualityReport();
+  log(`Kiểm tra chất lượng dữ liệu hoàn tất: ${issues.length} cảnh báo.`);
+  return issues;
+}
+
+function selectQualityRows() {
+  const rows = [...new Set((state.qualityIssues || []).map(x => x.rowIndex).filter(Number.isInteger))];
+  rows.forEach(i => state.editor.selected.add(i));
+  renderEditorTable();
+  log(`Đã chọn ${rows.length} dòng lỗi trên bảng hiệu chỉnh.`);
+}
+
+function markQualityAbnormal() {
+  if (!state.headers.length) return;
+  const abnormalCol = ensureMappedColumn('abnormal', 'Bất thường');
+  addProcessColumns();
+  let n=0;
+  for (const it of state.qualityIssues || []) {
+    if (Number.isInteger(it.rowIndex) && state.rawRows[it.rowIndex]) {
+      state.rawRows[it.rowIndex][abnormalCol] = '1';
+      state.rawRows[it.rowIndex]['ghi_chu_xu_ly'] = `${state.rawRows[it.rowIndex]['ghi_chu_xu_ly'] || ''} ${it.type}`.trim();
+      n++;
+    }
+  }
+  markEditorDirty(true);
+  renderEditorTable();
+  log(`Đã đánh dấu bất thường ${n} dòng lỗi.`);
+}
+
+function exportQualityReport() {
+  const rows = (state.qualityIssues || []).map(x => ({dong: x.rowIndex != null ? x.rowIndex + 2 : '', thoi_gian:x.time||'', tram_lo:x.station||'', loai_loi:x.type, gia_tri:x.value??'', goi_y:x.suggestion||''}));
+  if (!rows.length) { log('Chưa có báo cáo chất lượng để xuất.'); return; }
+  saveTextFile('quality_report.csv', toCSV(rows, ['dong','thoi_gian','tram_lo','loai_loi','gia_tri','goi_y']), 'text/csv;charset=utf-8');
+}
+
+function groupRowsByStationRaw() {
+  const m = readMap();
+  const groups = new Map();
+  for (let i=0; i<state.rawRows.length; i++) {
+    const raw = state.rawRows[i];
+    const t = m.time ? parseTime(raw[m.time]) : null;
+    if (!t) continue;
+    const st = m.station ? String(raw[m.station] ?? '').trim() || 'ALL' : 'ALL';
+    const key = st;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({raw, rawIndex:i, time:t, p:m.p?parseNumber(raw[m.p]):NaN, station:st});
+  }
+  for (const arr of groups.values()) arr.sort((a,b)=>a.time-b.time);
+  return groups;
+}
+
+function inferPForMissing(method, arr, leftIdx, rightIdx, targetTime, interval) {
+  const left = arr[leftIdx], right = arr[rightIdx];
+  if (method === 'prev') return left?.p;
+  if (method === 'day' || method === 'week') {
+    const backMs = (method === 'day' ? 24 : 24*7) * 3600*1000;
+    const want = targetTime.getTime() - backMs;
+    const found = arr.find(x => Math.abs(x.time.getTime() - want) <= interval*60000*0.51 && Number.isFinite(x.p));
+    if (found) return found.p;
+  }
+  if (left && right && Number.isFinite(left.p) && Number.isFinite(right.p)) {
+    const f = (targetTime - left.time) / (right.time - left.time);
+    return left.p + (right.p - left.p) * f;
+  }
+  return Number.isFinite(left?.p) ? left.p : NaN;
+}
+
+function interpolateMissingTimestamps() {
+  if (!state.headers.length) throw new Error('Chưa có dữ liệu.');
+  const m = readMap();
+  if (!m.time || !m.p) throw new Error('Cần ánh xạ cột thời gian và P.');
+  const stationFilter = $('stationSelect')?.value || '__ALL__';
+  const scope = $('interpScope')?.value || 'current';
+  const method = $('interpMethod')?.value || 'linear';
+  const maxGap = Math.max(1, Math.floor(parseNumber($('interpMaxGap')?.value) || 12));
+  const syntheticCol = 'du_lieu_noi_suy', noteCol='ghi_chu_xu_ly';
+  addProcessColumns();
+  const groups = groupRowsByStationRaw();
+  let added=0, skipped=0;
+  for (const [station, arr] of groups) {
+    if (scope === 'current' && stationFilter !== '__ALL__' && station !== stationFilter) continue;
+    const expected = $('expectedInterval')?.value !== 'auto' ? parseNumber($('expectedInterval')?.value) : detectIntervalMinutes(arr.map(x => ({time:x.time,p:x.p})));
+    const interval = expected || 60;
+    for (let i=1; i<arr.length; i++) {
+      const prev = arr[i-1], next = arr[i];
+      const gap = (next.time - prev.time)/60000;
+      const miss = Math.round(gap/interval) - 1;
+      if (miss <= 0) continue;
+      if (miss > maxGap) { skipped += miss; continue; }
+      for (let k=1; k<=miss; k++) {
+        const t = new Date(prev.time.getTime() + k*interval*60000);
+        const row = {};
+        state.headers.forEach(h => row[h] = '');
+        row[m.time] = fmtTime(t);
+        row[m.p] = formatNum(inferPForMissing(method, arr, i-1, i, t, interval), 3);
+        if (m.station) row[m.station] = station;
+        if (m.temp) {
+          const a = parseNumber(prev.raw[m.temp]), b = parseNumber(next.raw[m.temp]);
+          if (Number.isFinite(a) && Number.isFinite(b)) row[m.temp] = formatNum(a + (b-a)*(k/(miss+1)), 1);
+          else if (Number.isFinite(a)) row[m.temp] = formatNum(a,1);
+        }
+        if (m.rain) row[m.rain] = '0';
+        if (m.holiday) row[m.holiday] = holidayByRules(t) ? '1' : '0';
+        if (m.abnormal) row[m.abnormal] = '0';
+        if (m.outage) row[m.outage] = '0';
+        if (m.transfer) row[m.transfer] = '0';
+        row[syntheticCol] = '1';
+        row[noteCol] = `LV5 noi suy moc thieu ${method}`;
+        state.rawRows.push(row); added++;
+      }
+    }
+  }
+  state.rawRows.sort((a,b) => (parseTime(a[m.time]) || 0) - (parseTime(b[m.time]) || 0));
+  normalizeRows(); applyDataInfo(); renderEditorTable(); previewData(); markEditorDirty(true);
+  $('interpolationInfo').innerHTML = `<span class="pill ok">Đã bổ sung ${added} mốc</span><span class="pill ${skipped?'warn':''}">Bỏ qua ${skipped} mốc do gap quá lớn</span>`;
+  log(`Nội suy mốc thiếu hoàn tất: thêm ${added}, bỏ qua ${skipped}.`);
+}
+
+function fillInvalidP() {
+  const m = readMap();
+  if (!m.time || !m.p) throw new Error('Cần ánh xạ thời gian/P.');
+  addProcessColumns();
+  let fixed=0;
+  const groups = groupRowsByStationRaw();
+  for (const [station, arr] of groups) {
+    for (let i=0;i<arr.length;i++) {
+      const item = arr[i];
+      if (Number.isFinite(item.p)) continue;
+      let l=i-1; while(l>=0 && !Number.isFinite(arr[l].p)) l--;
+      let r=i+1; while(r<arr.length && !Number.isFinite(arr[r].p)) r++;
+      let val=NaN;
+      if (l>=0 && r<arr.length) val = inferPForMissing('linear', arr, l, r, item.time, detectIntervalMinutes(arr.map(x=>({time:x.time,p:x.p}))));
+      else if (l>=0) val = arr[l].p;
+      else if (r<arr.length) val = arr[r].p;
+      if (Number.isFinite(val)) {
+        item.raw[m.p] = formatNum(val,3); item.raw['du_lieu_noi_suy'] = '1'; item.raw['ghi_chu_xu_ly'] = 'LV5 noi suy P loi/trong'; fixed++;
+      }
+    }
+  }
+  normalizeRows(); renderEditorTable(); previewData(); markEditorDirty(true);
+  $('interpolationInfo').innerHTML = `<span class="pill ok">Đã nội suy ${fixed} giá trị P lỗi/trống</span>`;
+  log(`Đã nội suy ${fixed} giá trị P lỗi/trống.`);
+}
+
+function similarDayPrediction(series, idx, nPerDay) {
+  const target = series[idx];
+  const cand=[];
+  for (let d=1; d<=56; d++) {
+    const j = idx - nPerDay*d;
+    if (j < 0) break;
+    const r = series[j];
+    if (!Number.isFinite(r.p)) continue;
+    let score = 1;
+    if (r.time.getDay() === target.time.getDay()) score += 3;
+    if ((r.holiday||0) === (target.holiday||0)) score += 2;
+    if (Number.isFinite(r.temp) && Number.isFinite(target.temp)) score += Math.max(0, 3 - Math.abs(r.temp-target.temp)/2);
+    score += Math.max(0, 2 - d/14);
+    cand.push({p:r.p, score, time:r.time});
+  }
+  cand.sort((a,b)=>b.score-a.score);
+  const top = cand.slice(0, Math.min(10, cand.length));
+  const sw = top.reduce((a,b)=>a+b.score,0);
+  return sw ? top.reduce((a,b)=>a+b.p*b.score,0)/sw : NaN;
+}
+
+function lastWeekPrediction(series, idx, nPerDay) {
+  const j = idx - nPerDay*7;
+  return j >= 0 && Number.isFinite(series[j].p) ? series[j].p : NaN;
+}
+
+function trendPrediction(series, idx) {
+  const vals=[];
+  for (let k=1;k<=5 && idx-k>=0;k++) if (Number.isFinite(series[idx-k].p)) vals.push(series[idx-k].p);
+  if (!vals.length) return NaN;
+  if (vals.length < 2) return vals[0];
+  const newest = vals[0], oldest = vals[vals.length-1];
+  return Math.max(0, newest + (newest-oldest)/(vals.length-1));
+}
+
+function resolveModelForStation(station) {
+  if (!state.model) return null;
+  if (state.model.modelsByStation) return state.model.modelsByStation[station] || state.model.modelsByStation['__ALL__'] || null;
+  return state.model;
+}
+
+function estimateRecentBias(model, rows, windowN=24) {
+  if (!model || !rows || rows.length < 10 || !windowN) return 0;
+  const ds = buildDataset(rows, model.featureMeans);
+  const n = Math.min(Math.max(0, windowN), ds.X.length);
+  if (!n) return 0;
+  let errors=[];
+  for (let i=ds.X.length-n; i<ds.X.length; i++) {
+    const p = predictModel(model, ds.X[i]);
+    if (Number.isFinite(p) && Number.isFinite(ds.y[i])) errors.push(ds.y[i]-p);
+  }
+  return mean(errors) || 0;
+}
+
+function updateForecastMetrics(rows) {
+  const pVals = rows.map(r => parseNumber(r.forecast_p_mw)).filter(Number.isFinite);
+  if (pVals.length) {
+    const max = Math.max(...pVals); const idx = rows.findIndex(r => parseNumber(r.forecast_p_mw) === max);
+    $('pmaxForecastVal').textContent = formatNum(max,3);
+    $('pmaxTimeVal').textContent = rows[idx]?.time || '-';
+  }
+}
+
+function drawErrorChart(times, actual, pred) {
+  const canvas = $('errorChart'); if (!canvas) return;
+  const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#071120'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  const err = actual.map((a,i)=> Number.isFinite(a)&&Number.isFinite(pred[i]) ? pred[i]-a : NaN);
+  const vals = err.filter(Number.isFinite); if (!vals.length) return;
+  const W=canvas.width,H=canvas.height,padL=54,padR=20,padT=26,padB=36;
+  const maxAbs = Math.max(...vals.map(v=>Math.abs(v)), 1);
+  const n = err.length; const xAt=i=>padL+(W-padL-padR)*(n<=1?0:i/(n-1)); const yAt=v=>padT+(H-padT-padB)*(0.5-v/(2*maxAbs));
+  ctx.strokeStyle='#29415f'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,yAt(0)); ctx.lineTo(W-padR,yAt(0)); ctx.stroke();
+  ctx.strokeStyle='#ef4444'; ctx.lineWidth=2; ctx.beginPath(); let started=false;
+  err.forEach((v,i)=>{ if(!Number.isFinite(v)) return; const x=xAt(i), y=yAt(v); if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y); }); ctx.stroke();
+  ctx.fillStyle='#ef4444'; ctx.font='13px system-ui'; ctx.fillText('Sai số = Dự báo - Thực tế', padL, 18);
+  ctx.fillStyle='#9fb0c6'; ctx.fillText('+'+formatNum(maxAbs,1), 8, padT+5); ctx.fillText('-'+formatNum(maxAbs,1), 8, H-padB+5);
+  const absVals = vals.map(Math.abs); const maxE = Math.max(...absVals); const idx = absVals.indexOf(maxE);
+  $('maxErrorVal').textContent = formatNum(maxE,3);
+  $('maxErrorTimeVal').textContent = times?.[idx] ? fmtTime(times[idx]) : '-';
+}
+
+function applyThresholdsToForecast(rows) {
+  const thresholds = parseThresholdText();
+  const alerts=[];
+  for (const r of rows) {
+    const st = r.station || '__ALL__';
+    const th = thresholds.find(x => x.station === st) || thresholds.find(x => x.station === '__ALL__' || x.station.toUpperCase() === 'ALL');
+    const p = parseNumber(r.forecast_p_mw);
+    let status = 'Bình thường';
+    if (th && Number.isFinite(p)) {
+      if (Number.isFinite(th.danger) && p >= th.danger) { status = 'NGUY HIỂM'; alerts.push({time:r.time, station:st, p, level:'NGUY HIỂM', threshold:th.danger}); }
+      else if (Number.isFinite(th.warn) && p >= th.warn) { status = 'CẢNH BÁO'; alerts.push({time:r.time, station:st, p, level:'CẢNH BÁO', threshold:th.warn}); }
+    }
+    r.nguong_canh_bao = th ? `${th.warn ?? ''}/${th.danger ?? ''}` : '';
+    r.trang_thai_nguong = status;
+  }
+  renderThresholdAlerts(alerts);
+}
+
+function forecastForStation(station, stepsOverride=null) {
+  const model = resolveModelForStation(station);
+  if (!model) throw new Error('Chưa có model phù hợp cho ' + station);
+  const sourceRows = state.rows.filter(r => station === '__ALL__' || r.station === station).sort((a,b)=>a.time-b.time);
+  if (sourceRows.length < 5) throw new Error('Chưa có đủ dữ liệu gần nhất cho ' + station);
+  const tempDefault = parseNumber($('futureTemp')?.value);
+  const rainDefault = parseNumber($('futureRain')?.value) || 0;
+  const interval = model.intervalMinutes || detectIntervalMinutes(sourceRows);
+  const nPerDay = model.nPerDay || Math.round(1440/interval);
+  const lastTemp = [...sourceRows].reverse().find(r => Number.isFinite(r.temp))?.temp;
+  const tempUse = Number.isFinite(tempDefault) ? tempDefault : lastTemp;
+  const series = sourceRows.map(r => ({...r}));
+  const steps = Math.max(1, Math.floor(stepsOverride || parseNumber($('forecastSteps')?.value) || 24));
+  const w = getHybridWeights();
+  const bias = estimateRecentBias(model, sourceRows, Math.max(0, Math.floor(parseNumber($('biasWindow')?.value) || 0)));
+  const forecast=[];
+  let lastTime = series[series.length-1].time;
+  for (let s=1; s<=steps; s++) {
+    const t = new Date(lastTime.getTime() + interval*60000);
+    const row = {time:t, p:NaN, station: station === '__ALL__' ? 'ALL' : station, temp:tempUse, rain:rainDefault, holiday:holidayByRules(t)?1:0, abnormal:0, outage:0, transfer:0};
+    series.push(row);
+    const idx = series.length - 1;
+    const x = computeFeatureVector(series, idx, nPerDay, {temp: tempUse, rain: rainDefault});
+    const gbdt = Math.max(0, predictModel(model, x));
+    const similar = similarDayPrediction(series, idx, nPerDay);
+    const week = lastWeekPrediction(series, idx, nPerDay);
+    const trend = trendPrediction(series, idx);
+    const comps = {gbdt, similar, week, trend};
+    let pred=0, sw=0;
+    for (const [k, val] of Object.entries(comps)) if (Number.isFinite(val) && Number.isFinite(w[k]) && w[k] > 0) { pred += val*w[k]; sw += w[k]; }
+    pred = sw ? pred/sw : gbdt;
+    pred = Math.max(0, pred + bias);
+    row.p = pred;
+    forecast.push({step:s, time:fmtTime(t), station:row.station, forecast_p_mw:formatNum(pred,3), temp:Number.isFinite(tempUse)?formatNum(tempUse,1):'', rain:rainDefault, holiday:row.holiday, gbdt:formatNum(gbdt,3), similar_day:formatNum(similar,3), same_hour_last_week:formatNum(week,3), trend:formatNum(trend,3), bias:formatNum(bias,3)});
+    lastTime = t;
+  }
+  return {forecast, series, interval, model, station, weights:w};
+}
+
+function forecastNext() {
+  if (!state.model) throw new Error('Chưa có model.');
+  const selected = $('stationSelect')?.value || '__ALL__';
+  const station = selected === '__ALL__' && state.model.modelsByStation ? Object.keys(state.model.modelsByStation)[0] : selected;
+  const out = forecastForStation(station);
+  state.forecastRows = out.forecast;
+  applyThresholdsToForecast(state.forecastRows);
+  renderTable(state.forecastRows, ['step','time','station','forecast_p_mw','temp','rain','holiday','gbdt','similar_day','same_hour_last_week','trend','bias','nguong_canh_bao','trang_thai_nguong'], 1000);
+  const steps = out.forecast.length;
+  const actualHist = out.series.slice(-Math.min(steps*2, 240)).map((r,i,arr)=> i < arr.length-steps ? r.p : NaN);
+  const predHist = out.series.slice(-Math.min(steps*2, 240)).map((r,i,arr)=> i >= arr.length-steps ? r.p : NaN);
+  const times = out.series.slice(-Math.min(steps*2, 240)).map(r=>r.time);
+  drawSeries(times, actualHist, predHist, 'Lịch sử gần nhất', 'Dự báo LV5');
+  updateForecastMetrics(state.forecastRows);
+  renderForecastExplain(out);
+  $('exportForecastBtn').disabled = false;
+  log(`Đã dự báo LV5 cho ${out.station}, ${steps} bước, mỗi bước ${out.interval} phút.`);
+}
+
+function forecastAllStations() {
+  if (!state.model) throw new Error('Chưa có model.');
+  const stations = state.model.modelsByStation ? Object.keys(state.model.modelsByStation) : [...new Set(state.rows.map(r=>r.station||'ALL'))];
+  let all=[];
+  for (const st of stations) {
+    try { all = all.concat(forecastForStation(st).forecast); }
+    catch(e) { log('Bỏ qua ' + st + ': ' + e.message); }
+  }
+  state.forecastRows = all;
+  applyThresholdsToForecast(state.forecastRows);
+  renderTable(all, ['step','time','station','forecast_p_mw','temp','rain','holiday','gbdt','similar_day','same_hour_last_week','trend','bias','nguong_canh_bao','trang_thai_nguong'], 2000);
+  updateForecastMetrics(all);
+  $('exportForecastBtn').disabled = false;
+  log(`Đã dự báo tất cả trạm/lộ: ${all.length} dòng.`);
+}
+
+function renderForecastExplain(out) {
+  const box = $('forecastExplainBox'); if (!box || !out?.forecast?.length) return;
+  const first = out.forecast[0];
+  box.innerHTML = `<b>Giải thích bước đầu:</b> <span class="pill">GBDT ${first.gbdt}</span><span class="pill">Similar Day ${first.similar_day}</span><span class="pill">Tuần trước ${first.same_hour_last_week}</span><span class="pill">Xu hướng ${first.trend}</span><span class="pill">Bù sai số ${first.bias}</span><span class="pill ok">Dự báo cuối ${first.forecast_p_mw} MW</span>`;
+}
+
+function parseThresholdText() {
+  const text = $('thresholdText')?.value || '';
+  const rows=[];
+  for (const line of text.split(/\r?\n/)) {
+    const s = line.trim(); if (!s || s.startsWith('#')) continue;
+    const parts = s.split(/[;,\t|]/).map(x=>x.trim());
+    if (parts.length < 2) continue;
+    rows.push({station: parts[0], warn: parseNumber(parts[1]), danger: parseNumber(parts[2])});
+  }
+  state.thresholds = rows;
+  return rows;
+}
+
+function renderThresholdAlerts(alerts=[]) {
+  const box = $('thresholdAlerts'); if (!box) return;
+  if (!alerts.length) { box.innerHTML = '<span class="pill ok">Không có dự báo vượt ngưỡng</span>'; return; }
+  const max = alerts.slice(0,20).map(a => `<div class="pill ${a.level==='NGUY HIỂM'?'bad':'warn'}">${escapeHtml(a.station)} ${escapeHtml(a.time)}: ${formatNum(a.p,2)} MW ≥ ${formatNum(a.threshold,2)} (${a.level})</div>`).join('');
+  box.innerHTML = max + (alerts.length>20 ? `<div class="note">... còn ${alerts.length-20} cảnh báo khác</div>` : '');
+}
+
+function exportThresholds() {
+  const rows = parseThresholdText();
+  if (!rows.length) { log('Chưa có ngưỡng để xuất.'); return; }
+  saveTextFile('thresholds.csv', toCSV(rows, ['station','warn','danger']), 'text/csv;charset=utf-8');
+}
+
+function updateValidationErrorViews() {
+  if (!state.trainingResult) return;
+  const {timesVal, yval, predVal} = state.trainingResult;
+  drawErrorChart(timesVal, yval, predVal);
+  const errRows = yval.map((a,i)=>({time:fmtTime(timesVal[i]), actual:formatNum(a,3), forecast:formatNum(predVal[i],3), error:formatNum(predVal[i]-a,3), abs_error:formatNum(Math.abs(predVal[i]-a),3)}));
+  if (errRows.length) {
+    const abs = errRows.map(r=>parseNumber(r.abs_error)); const max=Math.max(...abs); const idx=abs.indexOf(max);
+    $('maxErrorVal').textContent = formatNum(max,3); $('maxErrorTimeVal').textContent = errRows[idx]?.time || '-';
+  }
+}
+
+function renderModelInfo() {
+  if (!state.model) { $('modelInfo').innerHTML = ''; return; }
+  const m = state.model;
+  if (m.modelsByStation) {
+    const n = Object.keys(m.modelsByStation).length;
+    $('modelInfo').innerHTML = `<span class="pill">Model bundle LV5</span><span class="pill">${n} trạm/lộ</span><span class="pill">Created: ${escapeHtml(m.createdAt||'')}</span>`;
+    $('forecastBtn').disabled = false; $('forecastAllBtn').disabled = false;
+    return;
+  }
+  $('modelInfo').innerHTML = `
+    <span class="pill">Model: ${escapeHtml(m.type || '')}</span>
+    <span class="pill">Số cây: ${m.trees?.length || 0}</span>
+    <span class="pill">Interval: ${m.intervalMinutes} phút</span>
+    <span class="pill">Station: ${escapeHtml(m.station || 'ALL')}</span>
+    <span class="pill">MAPE: ${formatNum(m.metrics?.validation?.mape,2)}%</span>`;
+}
+
+async function trainAllStations() {
+  if (!state.rows.length) throw new Error('Chưa có dữ liệu.');
+  const original = $('stationSelect').value;
+  const stations = [...new Set(state.rows.map(r => r.station || 'ALL'))].filter(Boolean);
+  if (!stations.length) throw new Error('Không có trạm/lộ để huấn luyện.');
+  const modelsByStation = {};
+  for (const st of stations) {
+    $('stationSelect').value = st;
+    try {
+      await trainGBDT();
+      if (state.model && state.model.trees) { modelsByStation[st] = state.model; log(`Đã huấn luyện xong model riêng cho ${st}.`); }
+    } catch(e) { log(`Không huấn luyện được ${st}: ${e.message}`); }
+  }
+  $('stationSelect').value = original;
+  if (!Object.keys(modelsByStation).length) throw new Error('Không tạo được model riêng nào.');
+  state.model = {type:'GBDT_STATION_BUNDLE_JS_OFFLINE_LV5', createdAt:new Date().toISOString(), modelsByStation, colMap:state.colMap, note:'Bundle model theo từng trạm/lộ, dùng offline trong SCADA.'};
+  $('exportModelBtn').disabled = false; $('forecastBtn').disabled = false; $('forecastAllBtn').disabled = false; renderModelInfo();
+  log(`Hoàn tất huấn luyện bundle LV5: ${Object.keys(modelsByStation).length} model riêng.`);
+}
+
+function exportForecast() {
+  if (!state.forecastRows.length) return;
+  const headers = ['step','time','station','forecast_p_mw','temp','rain','holiday','gbdt','similar_day','same_hour_last_week','trend','bias','nguong_canh_bao','trang_thai_nguong'];
+  saveTextFile('forecast.csv', toCSV(state.forecastRows, headers), 'text/csv;charset=utf-8');
+  log('Đã xuất forecast.csv LV5.');
+}
+
+function exportModel() {
+  if (!state.model) return;
+  const payload = {...state.model, lv5Config: collectFullConfig()};
+  saveTextFile('model_gbdt.json', JSON.stringify(payload, null, 2), 'application/json');
+  log('Đã xuất model_gbdt.json LV5 kèm cấu hình. Copy file này vào mạng SCADA để dùng offline.');
+}
+
+function collectFullConfig() {
+  return {
+    version:'LV5', savedAt:new Date().toISOString(), name:$('configName')?.value || 'SCADA_LOAD_FORECAST_LV5',
+    appMode:$('appMode')?.value || 'external', colMap:readMap(), sourceFileName:state.sourceFileName,
+    holiday:{sat:$('holidaySat')?.checked, sun:$('holidaySun')?.checked, fixed:$('holidayFixed')?.checked, extra:$('holidayExtraDates')?.value || '', clearNonMatch:$('holidayClearNonMatch')?.checked},
+    gbdt:{nTrees:$('nTrees')?.value, maxDepth:$('maxDepth')?.value, learningRate:$('learningRate')?.value, minLeaf:$('minLeaf')?.value, maxBins:$('maxBins')?.value, valPercent:$('valPercent')?.value},
+    hybrid:{wGbdt:$('wGbdt')?.value, wSimilar:$('wSimilar')?.value, wWeek:$('wWeek')?.value, wTrend:$('wTrend')?.value, biasWindow:$('biasWindow')?.value, forecastBlend:$('forecastBlend')?.value},
+    quality:{spikePercent:$('spikePercent')?.value, minValidP:$('minValidP')?.value, expectedInterval:$('expectedInterval')?.value},
+    thresholdsText:$('thresholdText')?.value || ''
+  };
+}
+
+function applyFullConfig(cfg={}) {
+  if (cfg.name && $('configName')) $('configName').value = cfg.name;
+  if (cfg.appMode && $('appMode')) $('appMode').value = cfg.appMode;
+  const setVal = (id,v) => { if ($(id) && v !== undefined && v !== null) $(id).value = v; };
+  const setChk = (id,v) => { if ($(id) && v !== undefined && v !== null) $(id).checked = !!v; };
+  if (cfg.holiday) { setChk('holidaySat',cfg.holiday.sat); setChk('holidaySun',cfg.holiday.sun); setChk('holidayFixed',cfg.holiday.fixed); setVal('holidayExtraDates',cfg.holiday.extra); setChk('holidayClearNonMatch',cfg.holiday.clearNonMatch); }
+  if (cfg.gbdt) Object.entries(cfg.gbdt).forEach(([k,v]) => setVal(k,v));
+  if (cfg.hybrid) Object.entries(cfg.hybrid).forEach(([k,v]) => setVal(k,v));
+  if (cfg.quality) { setVal('spikePercent',cfg.quality.spikePercent); setVal('minValidP',cfg.quality.minValidP); setVal('expectedInterval',cfg.quality.expectedInterval); }
+  setVal('thresholdText', cfg.thresholdsText);
+  if (cfg.colMap) {
+    const mapId = {time:'colTime',p:'colP',station:'colStation',temp:'colTemp',rain:'colRain',holiday:'colHoliday',abnormal:'colAbnormal',outage:'colOutage',transfer:'colTransfer'};
+    Object.entries(cfg.colMap).forEach(([k,v]) => { const id=mapId[k]; if ($(id) && [...$(id).options].some(o=>o.value===v)) $(id).value=v; });
+  }
+  applyAppMode(); parseThresholdText();
+}
+
+function saveSettingsToLocal() {
+  try { localStorage.setItem('SCADA_LOAD_FORECAST_LV5_SETTINGS', JSON.stringify(collectFullConfig())); } catch(_) {}
+}
+
+function loadSettingsFromLocal() {
+  try { return JSON.parse(localStorage.getItem('SCADA_LOAD_FORECAST_LV5_SETTINGS') || localStorage.getItem('SCADA_LOAD_FORECAST_LV4_SETTINGS') || '{}'); } catch(_) { return {}; }
+}
+
+async function saveFullConfigOffline() { await idbSet('fullConfigLV5', collectFullConfig()); saveSettingsToLocal(); log('Đã lưu cấu hình LV5 vào trình duyệt offline.'); }
+async function loadFullConfigOffline() { const cfg = await idbGet('fullConfigLV5') || loadSettingsFromLocal(); applyFullConfig(cfg); log('Đã nạp cấu hình LV5 offline.'); }
+function exportFullConfig() { saveTextFile('config_lv5.json', JSON.stringify(collectFullConfig(), null, 2), 'application/json'); }
+function importFullConfigFile(file) { loadTextFile(file, text => { try { applyFullConfig(JSON.parse(text)); saveSettingsToLocal(); log('Đã nạp config_lv5.json.'); } catch(e) { log('Lỗi nạp cấu hình: '+e.message); } }); }
+
+function applyAppMode() {
+  const mode = $('appMode')?.value || 'external'; state.appMode = mode;
+  document.querySelectorAll('.modeExternal').forEach(el => el.classList.toggle('hideByMode', mode === 'scada'));
+  const txt = mode === 'scada' ? 'SCADA: chỉ dự báo/cảnh báo' : 'Mạng ngoài: hiệu chỉnh/huấn luyện';
+  $('versionInfo').innerHTML = `<span class="pill modeBadge">LV5</span><span class="pill">${txt}</span>`;
+}
+
+async function forceUpdateApp() {
+  log('Đang ép cập nhật: bỏ cache PWA/Service Worker cũ...');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) await r.unregister();
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      for (const k of keys) if (/scada|load|forecast|lv/i.test(k)) await caches.delete(k);
+    }
+    log('Đã xóa cache ứng dụng. Trang sẽ tải lại.');
+    setTimeout(()=>location.reload(true), 600);
+  } catch(e) { log('Lỗi ép cập nhật: ' + e.message); }
+}
+
+function lv5BindEvents() {
+  const on = (id, ev, fn) => { if ($(id)) $(id).addEventListener(ev, fn); };
+  on('appMode','change', () => { applyAppMode(); saveSettingsToLocal(); });
+  on('forceUpdateBtn','click', forceUpdateApp);
+  on('saveFullConfigBtn','click', () => saveFullConfigOffline().catch(e=>log('Lỗi lưu cấu hình: '+e.message)));
+  on('loadFullConfigBtn','click', () => loadFullConfigOffline().catch(e=>log('Lỗi nạp cấu hình: '+e.message)));
+  on('exportConfigBtn','click', exportFullConfig);
+  on('importConfigBtn','click', () => $('configFile')?.click());
+  on('configFile','change', e => { const f=e.target.files[0]; if(f) importFullConfigFile(f); });
+  on('runQualityBtn','click', () => { try { runQualityCheck(); } catch(e) { log('Lỗi kiểm tra dữ liệu: '+e.message); } });
+  on('selectQualityRowsBtn','click', selectQualityRows);
+  on('markQualityAbnormalBtn','click', () => { try { markQualityAbnormal(); } catch(e) { log('Lỗi đánh dấu bất thường: '+e.message); } });
+  on('exportQualityBtn','click', exportQualityReport);
+  on('addProcessColumnsBtn','click', () => { addProcessColumns(); renderEditorTable(); });
+  on('interpolateBtn','click', () => { try { interpolateMissingTimestamps(); } catch(e) { log('Lỗi nội suy mốc thiếu: '+e.message); } });
+  on('fillInvalidPBtn','click', () => { try { fillInvalidP(); } catch(e) { log('Lỗi nội suy P: '+e.message); } });
+  on('trainAllStationsBtn','click', () => trainAllStations().catch(e => { $('trainBtn').disabled=false; log('Lỗi huấn luyện bundle: ' + e.message); }));
+  on('forecastAllBtn','click', () => { try { forecastAllStations(); } catch(e) { log('Lỗi dự báo tất cả: '+e.message); } });
+  on('applyThresholdBtn','click', () => { const rows=parseThresholdText(); renderThresholdAlerts([]); saveSettingsToLocal(); log(`Đã áp dụng ${rows.length} dòng ngưỡng cảnh báo.`); });
+  on('exportThresholdBtn','click', exportThresholds);
+  ['wGbdt','wSimilar','wWeek','wTrend','biasWindow','forecastBlend','thresholdText','expectedInterval','spikePercent','minValidP'].forEach(id => on(id, id==='thresholdText'?'input':'change', saveSettingsToLocal));
+  applyFullConfig(loadSettingsFromLocal());
+  applyAppMode();
+}
+
+setTimeout(lv5BindEvents, 0);
+// ====================== END LV5 EXTENSIONS ======================
+
 $('csvFile').addEventListener('change', e => {
   const file = e.target.files[0]; if (!file) return;
   state.workbook = null; state.currentSheet = '';
@@ -1383,13 +1988,14 @@ $('modelFile').addEventListener('change', e => {
   loadTextFile(file, text => {
     try {
       const m = JSON.parse(text);
-      if (!m.trees || !m.featureNames) throw new Error('Không đúng cấu trúc model_gbdt.json.');
+      if ((!m.trees || !m.featureNames) && !m.modelsByStation) throw new Error('Không đúng cấu trúc model_gbdt.json.');
       state.model = m;
       updateMetrics(m.metrics?.validation || {}, m.intervalMinutes);
       renderModelInfo();
       $('forecastBtn').disabled = false;
+      if ($('forecastAllBtn')) $('forecastAllBtn').disabled = false;
       $('exportModelBtn').disabled = false;
-      log(`Đã nạp model: ${file.name}, ${m.trees.length} cây.`);
+      log(`Đã nạp model: ${file.name}, ${m.modelsByStation ? Object.keys(m.modelsByStation).length + ' model trạm/lộ' : m.trees.length + ' cây'}.`);
     } catch(err) { log('Lỗi nạp model: ' + err.message); }
   });
 });
@@ -1452,4 +2058,4 @@ $('editorBox').addEventListener('change', e => {
 
 fillColumnSelects([]);
 renderEditorTable();
-log('Sẵn sàng LV4. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON. Có thể lọc theo ngày, chọn nhiều dòng, điền nhanh nhiệt độ/cờ vận hành rồi huấn luyện hoặc nạp model.');
+log('Sẵn sàng LV5. Bước 1: nạp file Excel .xlsx/.xlsm hoặc CSV/TXT/TSV/JSON. Có thể lọc theo ngày, chọn nhiều dòng, điền nhanh nhiệt độ/cờ vận hành rồi huấn luyện hoặc nạp model.');
