@@ -1,0 +1,6 @@
+﻿Mã sự kiện,Thời gian,Lộ giảm/P=0,Lộ nhận tăng,Kết quả mong đợi
+EVT_CT_473_TO_471,2026-04-28 14:00..15:30,Tuyên Quang/E22.1/473_Hà Giang/E14.1/471,Hà Giang/E14.1/471_Tuyên Quang/E22.1/473,Phân tích chuyển tải chéo phải thấy lộ nhận tải tăng gần tương ứng; các dòng chuyển tải nên bỏ khỏi huấn luyện nền.
+EVT_OUTAGE_E142_473,2026-04-29 10:00..10:45,Hà Giang/E14.2/473,,"P=0 có cờ cắt điện/sự cố; giữ dữ liệu gốc, bỏ khỏi huấn luyện hoặc nội suy nếu cần chuỗi liên tục."
+EVT_DATA_ERROR_ZERO,2026-04-30 02:15,Tuyên Quang/E22.2/475,,"P=0 không có cờ vận hành; kiểm tra chất lượng phải cảnh báo, nên nội suy hoặc đánh dấu bất thường."
+EVT_UNFLAGGED_SPIKE,2026-05-02 19:00,Tuyên Quang/E22.3/477_Hà Giang/E14.3/475,,P tăng đột biến chưa đánh dấu; kiểm tra chất lượng phải cảnh báo tăng/giảm đột biến.
+GAP_F6,"2026-04-27 03:00, 2026-04-27 03:15",Hà Giang/E14.3/475_Tuyên Quang/E22.3/477,,Thiếu hẳn mốc thời gian; chức năng bổ sung mốc thiếu phải tạo lại mốc và nội suy P.

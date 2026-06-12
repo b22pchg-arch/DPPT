@@ -1,178 +1,46 @@
-# SCADA Load Forecast Offline PWA LV5
+# SCADA Load Forecast Offline PWA LV9
 
-Bản LV5 dùng để xây dựng quy trình dự báo phụ tải offline cho môi trường SCADA không có internet.
+Bản LV9 phát triển từ lõi ổn định LV8.9/LV8.6, bổ sung giao diện **Workflow / Workbench** để người vận hành thao tác theo từng luồng, chỉ hiển thị bước đang làm thay vì toàn bộ mục dọc.
 
-## Điểm chính
+## Điểm mới LV9
 
-- Chạy offline, không CDN, không server ngoài, không `pwa.js`.
-- Đọc dữ liệu: CSV/TXT/TSV/JSON và Excel `.xlsx/.xlsm` bằng thư viện nội bộ.
-- Hiệu chỉnh dữ liệu trực tiếp trong bảng.
-- Lọc theo một ngày, nhiều ngày, hoặc khoảng ngày để sửa nhanh.
-- Điền nhanh nhiệt độ, mưa, ngày lễ, bất thường, cắt điện/sự cố, chuyển tải cho các dòng được chọn.
-- Tự nhận dạng ngày nghỉ/lễ offline.
-- Huấn luyện GBDT bằng JavaScript thuần.
-- Xuất `model_gbdt.json` để đưa vào mạng SCADA.
-- Nạp model và dự báo offline trong mạng SCADA.
+- Chọn nhanh 3 luồng công việc:
+  - **Luồng A - Tạo model ngoài SCADA**: nạp dữ liệu lịch sử, ánh xạ, tách chỉ danh, kiểm tra chất lượng, nội suy, phân tích vận hành, huấn luyện, so sánh chiến lược và xuất model.
+  - **Luồng B - Dự báo trong mạng SCADA**: nạp dữ liệu mới, nạp model vận hành, dự báo nhanh/đa cấp, báo cáo và cập nhật forecast vào RAM.
+  - **Luồng C - Đánh giá sai số và hiệu chỉnh model**: nạp dữ liệu thực tế + dữ liệu dự báo, đánh giá sai số, tạo hiệu chỉnh, áp dụng vào model và xuất model hiệu chỉnh.
+- Mỗi luồng có thanh bước riêng, nút **Quay lại / Tiếp tục / Thực hiện chính**.
+- Mặc định chỉ hiển thị khung chức năng của bước đang thao tác để tăng không gian cho bảng và giảm khựng.
+- Có **Chế độ chuyên gia / Hiển thị tất cả mục** để quay về giao diện dọc đầy đủ như LV8.9.
+- Dashboard và nhật ký thao tác vẫn là quan sát/ghi nhận, **không khóa nút**, không can thiệp lõi tính toán.
 
-## Nâng cấp LV5
+## Nguyên tắc vận hành
 
-LV5 bổ sung đầy đủ 8 nhóm chức năng:
+LV9 không thay đổi thuật toán lõi của LV8.9. Giao diện Workflow chỉ ẩn/hiện các khung chức năng phù hợp với bước hiện tại. Nếu cần truy cập mọi nút cùng lúc, bật **Hiển thị tất cả mục**.
 
-1. **Kiểm tra chất lượng dữ liệu**
-   - Thiếu/sai thời gian.
-   - Thiếu/sai P.
-   - P âm, P thấp bất thường.
-   - Trùng mốc thời gian.
-   - Mất mốc thời gian.
-   - P tăng/giảm đột biến.
-   - Xuất `quality_report.csv`.
+## Cách dùng nhanh
 
-2. **Nội suy / bổ sung dữ liệu mất mẫu**
-   - Bổ sung mốc thời gian thiếu.
-   - Nội suy P tuyến tính, giữ giá trị trước, cùng giờ hôm trước hoặc cùng giờ tuần trước.
-   - Nội suy P trống/lỗi trong các dòng hiện có.
-   - Tự thêm cột `du_lieu_noi_suy`, `ghi_chu_xu_ly`, `bo_khoi_huan_luyen`.
+1. Mở ứng dụng và chọn Luồng A/B/C.
+2. Bấm từng bước ở thanh bên trái hoặc dùng **Quay lại / Tiếp tục**.
+3. Ở mỗi bước, đọc hướng dẫn trong khung LV9 rồi thao tác trên khung chức năng đang hiển thị.
+4. Có thể bấm **Thực hiện chính** để kích hoạt nút chính của bước hiện tại.
+5. Khi cần kiểm tra toàn bộ, bật **Chế độ chuyên gia**.
 
-3. **Dự báo theo từng trạm/lộ riêng**
-   - Chọn trạm/lộ để huấn luyện model riêng.
-   - Có nút huấn luyện theo từng trạm/lộ để tạo bundle model.
-   - Có nút dự báo tất cả trạm/lộ.
+## Cập nhật PWA
 
-4. **Mô hình lai LV5**
-   - GBDT.
-   - Similar Day.
-   - Cùng giờ tuần trước.
-   - Xu hướng gần nhất.
-   - Bù sai số gần nhất.
-   - Cho phép chỉnh trọng số.
+Sau khi chép bản mới vào máy, bấm **Ép cập nhật bản mới**, sau đó đóng/mở lại ứng dụng để chắc chắn cache cũ đã được thay bằng LV9.
 
-5. **Biểu đồ thực tế / dự báo / sai số**
-   - Biểu đồ validation thực tế và dự báo.
-   - Biểu đồ sai số.
-   - Hiển thị Pmax dự báo, giờ Pmax, sai số lớn nhất và giờ sai số lớn nhất.
-
-6. **Cảnh báo quá tải theo ngưỡng vận hành**
-   - Nhập ngưỡng theo từng trạm/lộ.
-   - Ví dụ: `E22.1,38,42`.
-   - Tự đánh dấu `Bình thường`, `CẢNH BÁO`, `NGUY HIỂM` trong bảng dự báo.
-
-7. **Lưu/nạp cấu hình offline**
-   - Lưu cấu hình vào trình duyệt.
-   - Xuất `config_lv5.json`.
-   - Nạp `config_lv5.json`.
-   - Lưu ánh xạ cột, ngày lễ, tham số huấn luyện, trọng số mô hình lai, ngưỡng cảnh báo.
-   - Có nút **Ép cập nhật bản mới** để xóa cache PWA/Service Worker cũ khi copy bản mới vào cùng thư mục.
-
-8. **Chế độ Mạng ngoài / SCADA**
-   - Mạng ngoài: hiện đầy đủ hiệu chỉnh, kiểm tra, nội suy, huấn luyện.
-   - SCADA: ẩn các khối hiệu chỉnh/huấn luyện để tập trung nạp model, dự báo và cảnh báo.
-
-## Quy trình khuyến nghị
-
-### Máy ngoài mạng SCADA
-
-1. Mở app LV5.
-2. Chọn chế độ **Mạng ngoài**.
-3. Nạp dữ liệu lịch sử Excel/CSV.
-4. Kiểm tra chất lượng dữ liệu.
-5. Nội suy hoặc đánh dấu bất thường nếu cần.
-6. Huấn luyện model GBDT hoặc huấn luyện theo từng trạm/lộ.
-7. Xuất `model_gbdt.json`.
-8. Xuất `config_lv5.json` nếu cần.
-
-### Máy trong mạng SCADA
-
-1. Mở app LV5.
-2. Chọn chế độ **SCADA**.
-3. Nạp dữ liệu mới nhất.
-4. Nạp `model_gbdt.json`.
-5. Nạp cấu hình/ngưỡng nếu có.
-6. Bấm dự báo trạm/lộ đang chọn hoặc dự báo tất cả trạm/lộ.
-7. Xuất `forecast.csv`.
-
-## Chạy PWA đúng chuẩn
-
-Nếu mở trực tiếp bằng `file://`, phần đọc file, sửa dữ liệu, huấn luyện và dự báo vẫn chạy. Để Service Worker và cache PWA hoạt động đúng chuẩn, nên chạy qua localhost hoặc web server nội bộ:
-
-```bash
-python -m http.server 8080
-```
-
-Sau đó mở:
+## Thành phần chính
 
 ```text
-http://localhost:8080/index.html
+index.html
+app.js
+workflow_lv9.js
+sw.js
+manifest.webmanifest
+libs/
+icons/
+sample_load_data_lv6_chidanh.csv
+sample_load_data_lv6_chidanh.xlsx
 ```
 
-## Lưu ý về Excel `.xls`
-
-Bản này nhúng bộ đọc `.xlsx/.xlsm` nhẹ. File `.xls` nhị phân cũ nên lưu lại thành `.xlsx` hoặc CSV UTF-8 trước khi đưa vào app. Nếu cần đọc `.xls` trực tiếp, có thể thay bằng SheetJS chính thức `xlsx.full.min.js` nội bộ.
-
-## LV5.4 - Tích hợp đường dẫn SheetJS full
-
-Bản LV5.4 đã thêm sẵn đường dẫn nội bộ:
-
-```text
-libs/xlsx.full.min.js
-```
-
-`index.html` nạp thư viện theo thứ tự:
-
-```html
-<script src="libs/pako.min.js"></script>
-<script src="libs/xlsx.full.min.js"></script>
-<script src="libs/sheetjs-xlsx-lite.js"></script>
-<script src="app.js"></script>
-```
-
-Cơ chế hoạt động:
-
-- Nếu `libs/xlsx.full.min.js` là bản SheetJS full chính thức, ứng dụng sẽ dùng SheetJS full để đọc Excel.
-- Nếu file này vẫn là placeholder, ứng dụng tự dùng `sheetjs-xlsx-lite.js` để đọc `.xlsx/.xlsm` cơ bản.
-- File `.xls` nhị phân cũ cần thay placeholder bằng SheetJS full chính thức.
-
-Nguồn khuyến nghị khi tải ở máy ngoài mạng SCADA:
-
-```text
-https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
-```
-
-Sau khi thay file, hãy bấm nút **Ép cập nhật bản mới** trong ứng dụng để xóa cache PWA cũ.
-
-
-## LV5.4 - Sửa chức năng nội suy
-
-Bản LV5.4 sửa phần nội suy theo thực tế vận hành:
-
-- Nút **Nội suy P trống/lỗi trong dòng hiện có** xử lý cả P trống, P sai định dạng và P <= ngưỡng P thấp bất thường.
-- Nếu đã chọn dòng rồi bấm **Bổ sung mốc thiếu**, app sẽ vừa bổ sung mốc thời gian thiếu, vừa tự nội suy P lỗi/trống/<= ngưỡng trong các dòng đã chọn.
-- Phạm vi xử lý ưu tiên các dòng đã chọn; nếu chưa chọn dòng, dùng bộ lọc ngày/bảng hiện tại.
-- Nội suy tôn trọng bộ lọc ngày đang dùng để tránh tạo mốc ngoài ngày đang hiệu chỉnh.
-
-Ví dụ: nếu một mốc 21:00 có P = 0 và ngưỡng P thấp bất thường đặt là 0, hãy chọn dòng đó rồi bấm **Nội suy P trống/lỗi trong dòng hiện có** hoặc **Bổ sung mốc thiếu**. App sẽ lấy mốc hợp lệ trước/sau để nội suy và đánh dấu `du_lieu_noi_suy = 1`.
-
-
-## LV5.4 - Xử lý P=0/P thấp theo cờ vận hành
-
-Bản LV5.4 sửa logic theo thực tế vận hành:
-
-- `P = 0` hoặc P thấp **không luôn luôn là lỗi đo**.
-- Nếu dòng có cờ `cắt điện/sự cố`, `chuyển tải` hoặc `bất thường`, app mặc định **giữ số đo gốc** và có thể đánh dấu `bo_khoi_huan_luyen = 1` để model không học sai.
-- Nếu P thấp không có cờ vận hành, app coi là dữ liệu cần xử lý: nội suy, đánh dấu bất thường hoặc kiểm tra lại.
-- Thêm nút **Xử lý P=0/P thấp theo cờ vận hành**.
-- Thêm lựa chọn **Cách xử lý P=0/P thấp**:
-  - Tự động: có cờ vận hành thì giữ và bỏ huấn luyện.
-  - Nội suy cả P thấp dù có cờ vận hành.
-  - Không nội suy dòng có cờ vận hành, chỉ bỏ huấn luyện.
-- Kiểm tra chất lượng có cảnh báo riêng cho trường hợp `chuyển tải` nhưng chưa thấy lộ/trạm khác tăng tải cùng thời điểm.
-
-Khuyến nghị: với dữ liệu để huấn luyện dự báo, các dòng cắt điện/chuyển tải nên **bỏ khỏi huấn luyện** hoặc **nội suy thành phụ tải nền giả định**, không để model học trực tiếp giá trị 0 như một ngày bình thường.
-
-
-## LV5.4 - Sửa logic nội suy P=0/P thấp
-
-- P=0/P thấp không mặc định là lỗi; app xét thêm cờ `cắt điện/sự cố`, `chuyển tải`, `bất thường`.
-- Chế độ **Nội suy cả P thấp dù có cờ vận hành** sẽ ép nội suy dòng được chọn hoặc dòng đang lọc.
-- Khi nội suy P, giá trị cũ được lưu vào cột `p_goc`.
-- Nếu dòng có cờ vận hành, app vẫn đánh dấu `bo_khoi_huan_luyen=1` để model không học sự kiện vận hành như quy luật bình thường; nhưng P đã nội suy giúp chuỗi thời gian và các biến lag không bị kéo về 0.
-- Nút **Bổ sung mốc thiếu + xử lý P lỗi đã chọn** giờ xử lý cả hai trường hợp: thiếu mốc thời gian và dòng đã có mốc nhưng P trống/lỗi/P=0/P thấp.
+Không dùng CDN, không cần internet, không dùng `pwa.js`.

@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="LoadForecast" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>SCADA Load Forecast Offline PWA LV5.4</title>
+  <title>SCADA Load Forecast Offline PWA LV9</title>
   <style>
     :root{
       --bg:#0b1220;--panel:#111c2f;--panel2:#16243b;--text:#e5edf7;--muted:#9fb0c6;
@@ -23,9 +23,17 @@
     header{padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0f172a,#132238)}
     h1{font-size:20px;margin:0 0 6px} h2{font-size:17px;margin:0 0 12px} h3{font-size:15px;margin:14px 0 8px}
     .sub{color:var(--muted);font-size:13px}
-    main{max-width:1480px;margin:0 auto;padding:14px;display:grid;gap:14px}
-    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+    html{width:100%;min-width:0;overflow-x:hidden}
+    body{width:100%;min-width:0}
+    main{max-width:none;width:100%;margin:0;padding:clamp(8px,1.1vw,18px);display:grid;gap:14px}
+    .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;width:100%;max-width:100%;min-width:0}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.18);width:100%;max-width:100%;min-width:0}
+    html.layout-comfort main{max-width:1480px;margin:0 auto;padding:14px}
+    html.layout-wide main{max-width:none;width:100%;margin:0;padding:clamp(8px,1.1vw,18px)}
+    html.layout-ultra main{max-width:none;width:100%;margin:0;padding:6px}
+    html.layout-ultra .card{border-radius:10px;padding:10px}
+    html.layout-ultra .grid, html.layout-ultra .toolbar{gap:8px}
+    html.layout-ultra .tablewrap{max-height:calc(100vh - 210px)}
     .span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}.span6{grid-column:span 6}.span7{grid-column:span 7}.span8{grid-column:span 8}.span9{grid-column:span 9}.span12{grid-column:span 12}
     label{display:block;color:var(--muted);font-size:12px;margin:8px 0 4px}
     input,select,textarea{width:100%;background:var(--input);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:14px}
@@ -33,27 +41,37 @@
     button{border:0;border-radius:10px;padding:10px 12px;background:var(--btn);color:white;font-weight:700;cursor:pointer;min-height:40px}
     button.secondary{background:var(--btn2)} button.good{background:#15803d} button.warn{background:#b45309} button.bad{background:#b91c1c}
     button:disabled{opacity:.45;cursor:not-allowed}
+    .sectionToggleBtn{min-height:30px;padding:5px 9px;border-radius:8px;background:#334155;font-size:12px;white-space:nowrap;flex:0 0 auto}
+    .sectionTitleText{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .card>h2{display:flex;gap:8px;align-items:center;justify-content:space-between}
+    .card.section-collapsed>:not(h2){display:none!important}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>button{flex:1 1 160px}.row>div{flex:1 1 150px}
     .pill{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:4px 8px;color:var(--muted);font-size:12px;margin:2px 4px 2px 0;background:var(--panel2)}
     .pill.ok{border-color:#14532d;color:#86efac;background:#062315}.pill.warn{border-color:#92400e;color:#fbbf24;background:#261707}.pill.bad{border-color:#7f1d1d;color:#fecaca;background:#2a0b0b}
     .log{height:190px;overflow:auto;background:#06101e;border:1px solid var(--line);border-radius:12px;padding:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre-wrap;color:#cbd5e1}
-    .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:440px;background:#081426}
+    .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:440px;background:#081426;width:100%;max-width:100%;min-width:0}
     .hideByMode{display:none!important}.statusBox{background:#071120;border:1px solid var(--line);border-radius:12px;padding:10px}.smallTable{max-height:260px}.modeBadge{font-weight:800;color:#fef3c7;background:#3b2603;border-color:#92400e}.dangerBox{border-color:#7f1d1d;background:#220b0b}.okBox{border-color:#14532d;background:#062315}
-    table{border-collapse:collapse;width:100%;font-size:12px;min-width:800px} th,td{border-bottom:1px solid #21334e;padding:7px 8px;text-align:right;white-space:nowrap}
+    table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px} th,td{border-bottom:1px solid #21334e;padding:7px 8px;text-align:right;white-space:nowrap}
     th{position:sticky;top:0;background:#13243a;color:#dbeafe;z-index:1} td:first-child,th:first-child{text-align:left}
     .editorTable th,.editorTable td{text-align:left}.editorTable td[contenteditable="true"]{background:var(--edit);outline:none;min-width:96px}.editorTable td[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--accent);background:#0a2238}.editorTable tr.invalid td{background:#2a1111}.editorTable tr.selected td{box-shadow:inset 0 0 0 9999px rgba(56,189,248,.08)}.editorTable .rowSelect{width:auto;transform:scale(1.1)}
-    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px;margin-top:4px}.metric span{color:var(--muted);font-size:12px}
+    .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px;margin-top:4px}.metric span{color:var(--muted);font-size:12px}
     canvas{width:100%;height:320px;background:#071120;border:1px solid var(--line);border-radius:12px}
     details{background:#0c1829;border:1px solid var(--line);border-radius:12px;padding:10px} summary{cursor:pointer;font-weight:700;color:#dbeafe}
+    .workflowGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:10px}
+    .workflowStep{background:#0b1728;border:1px solid #28415f;border-radius:12px;padding:10px;min-height:112px}
+    .workflowStep b{display:block;color:#e0f2fe;margin-bottom:4px}.workflowStep .num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:#1d4ed8;color:#fff;margin-right:6px;font-weight:800}
+    .workflowStep.good{border-color:#14532d;background:#071d16}.workflowStep.warn{border-color:#92400e;background:#241603}.workflowStep.bad{border-color:#7f1d1d;background:#250b0b}
+    .workflowList{margin:8px 0 0 0;padding-left:18px;color:#cbd5e1;font-size:13px}.workflowList li{margin:4px 0}
+    .flowArrow{color:#fbbf24;font-weight:800}.miniCode{font-family:ui-monospace,Consolas,monospace;background:#06101e;border:1px solid var(--line);border-radius:8px;padding:2px 6px;color:#bae6fd}
     .note{font-size:13px;color:var(--muted)} .okText{color:var(--ok)} .warnText{color:var(--warn)} .badText{color:var(--bad)}
-    .toolbar{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end}.toolbar>.span1{grid-column:span 1}.toolbar>.span2{grid-column:span 2}.toolbar>.span3{grid-column:span 3}.toolbar>.span4{grid-column:span 4}.toolbar>.span6{grid-column:span 6}.toolbar>.span8{grid-column:span 8}.toolPanel{margin-top:10px;background:#0c1829;border:1px solid var(--line);border-radius:12px;padding:10px}.compactNote{font-size:12px;color:var(--muted);margin-top:4px}
-    @media(max-width:900px){.grid,.toolbar{grid-template-columns:1fr}.span3,.span4,.span5,.span6,.span7,.span8,.span9,.span12,.toolbar>.span1,.toolbar>.span2,.toolbar>.span3,.toolbar>.span4,.toolbar>.span6,.toolbar>.span8{grid-column:span 1}.metrics{grid-template-columns:repeat(2,1fr)}header{padding:14px}main{padding:10px}table{font-size:11px}}
+    .toolbar{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;align-items:end;width:100%;max-width:100%;min-width:0}.toolbar>.span1{grid-column:span 1}.toolbar>.span2{grid-column:span 2}.toolbar>.span3{grid-column:span 3}.toolbar>.span4{grid-column:span 4}.toolbar>.span6{grid-column:span 6}.toolbar>.span8{grid-column:span 8}.toolPanel{margin-top:10px;background:#0c1829;border:1px solid var(--line);border-radius:12px;padding:10px}.compactNote{font-size:12px;color:var(--muted);margin-top:4px}
+    @media(max-width:900px){.grid,.toolbar{grid-template-columns:1fr}.span3,.span4,.span5,.span6,.span7,.span8,.span9,.span12,.toolbar>.span1,.toolbar>.span2,.toolbar>.span3,.toolbar>.span4,.toolbar>.span6,.toolbar>.span8{grid-column:span 1}.metrics{grid-template-columns:repeat(2,1fr)}header{padding:14px}main{padding:10px}table{font-size:11px}.workflowGrid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
 <header>
-  <h1>SCADA Load Forecast Offline PWA LV5.4</h1>
-  <div class="sub">LV5.3: xử lý P=0/P thấp theo cờ cắt điện/chuyển tải/bất thường; vẫn giữ đủ 8 nhóm LV5: kiểm tra chất lượng dữ liệu, nội suy/mất mẫu, dự báo theo trạm/lộ, mô hình lai GBDT + Similar Day + bù sai số, biểu đồ thực tế/dự báo/sai số, cảnh báo ngưỡng vận hành, lưu/nạp cấu hình offline kèm nút <b>Ép cập nhật bản mới</b>, và chế độ <b>Mạng ngoài / SCADA</b>. Không CDN, không server ngoài, không pwa.js.</div>
+  <h1>SCADA Load Forecast Offline PWA LV9</h1>
+  <div class="sub">LV9: chuyển sang giao diện <b>Workflow / Workbench</b> theo 3 luồng A/B/C. Mặc định chỉ hiển thị bước đang thao tác để tăng không gian bảng và giảm khựng; vẫn giữ <b>Chế độ chuyên gia</b> để xem toàn bộ mục dọc. Dashboard và nhật ký chỉ quan sát, không khóa nút và không can thiệp lõi xử lý ổn định của LV8.6/LV8.9. Không CDN, không server ngoài, không pwa.js.</div>
 </header>
 <main>
   <section class="grid">
@@ -62,9 +80,10 @@
       <h2>0) Chế độ vận hành & cấu hình offline</h2>
       <div class="toolbar">
         <div class="span3"><label>Chế độ</label><select id="appMode"><option value="external">Mạng ngoài: hiệu chỉnh + huấn luyện</option><option value="scada">SCADA: dự báo nhanh + cảnh báo</option></select></div>
-        <div class="span3"><label>Tên cấu hình</label><input id="configName" value="SCADA_LOAD_FORECAST_LV5"></div>
+        <div class="span3"><label>Tên cấu hình</label><input id="configName" value="SCADA_LOAD_FORECAST_LV9"></div>
         <div class="span3"><label>Mốc dữ liệu mong muốn</label><select id="expectedInterval"><option value="auto">Tự nhận dạng</option><option value="5">5 phút</option><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">60 phút</option></select></div>
-        <div class="span3"><label>Trạng thái bản</label><div id="versionInfo"><span class="pill modeBadge">LV5</span></div></div>
+        <div class="span3"><label>Trạng thái bản</label><div id="versionInfo"><span class="pill modeBadge">LV9</span></div></div>
+        <div class="span12"><div class="compactNote"><b>LV9 Workflow:</b> thêm giao diện từng bước A/B/C để người vận hành chỉ nhìn thấy phần cần thao tác. Chế độ này chỉ ẩn/hiện khung chức năng, không khóa nút và không thay đổi lõi dự báo/huấn luyện/hiệu chỉnh.</div></div>
       </div>
       <div class="row" style="margin-top:10px">
         <button class="secondary" id="saveFullConfigBtn">Lưu cấu hình offline</button>
@@ -76,11 +95,110 @@
       <input id="configFile" type="file" accept=".json" style="display:none" />
       <div class="compactNote">Nút ép cập nhật sẽ yêu cầu Service Worker bỏ cache cũ, rồi tự tải lại trang. Dùng khi chép bản LV mới vào cùng thư mục nhưng trình duyệt vẫn giữ cache cũ.</div>
     </div>
+
+    <div class="card span12">
+      <h2>0.3) Dashboard LV8.9 - Tổng quan vận hành</h2>
+      <div class="compactNote">Dashboard chỉ hiển thị trạng thái, không khóa nút và không can thiệp thao tác. Dùng để kiểm tra nhanh dữ liệu/model/forecast/sai số trước khi vận hành.</div>
+      <div class="metrics" id="lv89DashboardMetrics" style="margin-top:10px">
+        <div class="metric"><span>Dòng RAM chuẩn hóa</span><b id="lv89RowsMetric">-</b></div>
+        <div class="metric"><span>Khoảng thời gian dữ liệu</span><b id="lv89RangeMetric">-</b></div>
+        <div class="metric"><span>Số chỉ danh</span><b id="lv89StationMetric">-</b></div>
+        <div class="metric"><span>Model đang nạp</span><b id="lv89ModelMetric">-</b></div>
+        <div class="metric"><span>Hiệu chỉnh</span><b id="lv89CalibrationMetric">-</b></div>
+        <div class="metric"><span>Forecast hiện có</span><b id="lv89ForecastMetric">-</b></div>
+        <div class="metric"><span>MAPE đánh giá gần nhất</span><b id="lv89MapeMetric">-</b></div>
+        <div class="metric"><span>Lỗi/cảnh báo dữ liệu</span><b id="lv89QualityMetric">-</b></div>
+      </div>
+      <div id="lv89DashboardStatus" class="statusBox" style="margin-top:10px"><span class="pill">Đang khởi tạo Dashboard LV8.9</span></div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="lv89RefreshDashboardBtn">Cập nhật Dashboard</button>
+        <button class="secondary" id="lv89ExportStateBtn">Xuất trạng thái dashboard_lv8_9.json</button>
+      </div>
+    </div>
+
+    <div class="card span12">
+      <h2>0.4) Nhật ký thao tác LV8.9</h2>
+      <div class="compactNote">Nhật ký chỉ ghi nhận các thao tác chính để truy vết; không thay đổi dữ liệu và không khóa chức năng.</div>
+      <div class="row" style="margin-top:8px">
+        <button class="secondary" id="lv89ExportLogBtn">Xuất operation_log_lv8_9.csv</button>
+        <button class="danger" id="lv89ClearLogBtn">Xóa nhật ký thao tác</button>
+      </div>
+      <div id="lv89OperationLogBox" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có nhật ký thao tác LV8.9.</td></tr></tbody></table></div>
+    </div>
+
+
+    <div class="card span12">
+      <h2>0.1) Hướng dẫn luồng công việc cho người vận hành</h2>
+      <div class="statusBox okBox">
+        <b>Nguyên tắc chung:</b> làm từ trên xuống dưới theo số mục. Có thể bấm <b>Thu gọn/Mở</b> tại tiêu đề từng khu vực để nhường không gian cho bảng Mục 4 hoặc chức năng đang thao tác. Từ LV8.9, mặc định dùng bố cục rộng toàn màn hình; có thể đổi sang <b>Rộng / Siêu rộng / Cố định 1480px</b> tại Mục 0.2. Dashboard LV8.9 và Nhật ký thao tác ở Mục 0.3/0.4 chỉ để theo dõi, không khóa nút. Bản này có 2 luồng: <b>Mạng ngoài</b> dùng để chuẩn hóa dữ liệu, huấn luyện và xuất model; <b>SCADA</b> dùng dữ liệu mới cùng cấu trúc/chỉ danh để nạp model đã xuất, dự báo và cảnh báo. Không nạp model ở Mục 10 trước khi đã có file model vận hành xuất từ Mục 8.
+      </div>
+
+      <details open style="margin-top:10px">
+        <summary>Luồng A - Máy ngoài mạng SCADA: chuẩn hóa dữ liệu, huấn luyện và xuất model</summary>
+        <div class="workflowGrid">
+          <div class="workflowStep"><b><span class="num">0</span>Chọn chế độ</b><ul class="workflowList"><li>Chọn <b>Mạng ngoài: hiệu chỉnh + huấn luyện</b>.</li><li>Nạp hoặc lưu cấu hình nếu đã có.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">1</span>Nạp dữ liệu</b><ul class="workflowList"><li>Chọn file Excel/CSV/TXT/JSON.</li><li>Nếu là Excel, chọn đúng sheet.</li><li>Chọn đối tượng dự báo nếu cần.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">2</span>Ánh xạ cột</b><ul class="workflowList"><li>Chọn cột <b>Thời gian</b>, <b>Công suất P</b>, <b>Trạm/Lộ/Khu vực</b>.</li><li>Ánh xạ thêm nhiệt độ, mưa, ngày lễ, sự cố, chuyển tải nếu có.</li><li>Bấm <b>Áp dụng ánh xạ</b>.</li></ul></div>
+          <div class="workflowStep warn"><b><span class="num">3</span>Tách chỉ danh LV6</b><ul class="workflowList"><li>Bấm <b>Tách chỉ danh LV6 vào cột riêng</b>.</li><li>Kiểm tra các cột đơn vị, trạm, lộ, lộ nối vòng.</li><li>Có thể xuất <span class="miniCode">designation_map.csv</span> để rà soát.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">4</span>Hiệu chỉnh dữ liệu</b><ul class="workflowList"><li>Lọc theo ngày hoặc nhiều ngày.</li><li>Điền nhanh nhiệt độ, ngày nghỉ/lễ, cắt điện, chuyển tải.</li><li>Bấm <b>Lưu thay đổi vào dữ liệu</b>.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">5</span>Kiểm tra chất lượng</b><ul class="workflowList"><li>Bấm <b>Kiểm tra dữ liệu</b>.</li><li>Mục 4 tự hiện dòng lỗi để sửa.</li><li>Với mất mốc, bấm <b>Chỉ hiện dòng liền trước và liền sau mốc thiếu</b>.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">6</span>Nội suy / bổ sung mốc</b><ul class="workflowList"><li>Dùng cho P trống, P thấp, mất mốc thời gian.</li><li>Với P=0 có cờ vận hành: chọn đúng cách xử lý.</li><li>Các dòng sửa sẽ có <span class="miniCode">du_lieu_noi_suy</span> và <span class="miniCode">p_goc</span>.</li></ul></div>
+          <div class="workflowStep warn"><b><span class="num">7</span>Phân tích vận hành</b><ul class="workflowList"><li>Bấm <b>Phân tích chuyển tải / P=0</b>.</li><li>Mục 4 tự hiện các dòng sự kiện vận hành để rà soát.</li><li>Khi chạy Mục 7, app tự thu gọn Mục 5 và Mục 6 để tối ưu không gian thao tác.</li><li>Kiểm tra lộ giảm tải và lộ nhận tải theo lộ nối vòng.</li><li>Nếu cần phục hồi P nền: chọn dòng nguồn sự kiện rồi bấm khôi phục; nếu chuyển tải, app sẽ trừ phần P tương ứng ở lộ nhận.</li><li>Xuất <span class="miniCode">operation_event_report.csv</span> nếu cần.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">8</span>Huấn luyện GBDT</b><ul class="workflowList"><li>Bấm huấn luyện cho trạm/lộ đang chọn hoặc toàn bộ.</li><li>Đây là nơi tạo gói model vận hành.</li><li>Chưa xuất model trước khi áp dụng chiến lược ở Mục 9.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">9</span>So sánh và áp dụng</b><ul class="workflowList"><li>Bấm <b>So sánh mô hình</b>.</li><li>Chọn <b>Áp dụng gợi ý tốt nhất</b> hoặc áp dụng thủ công.</li><li>Chiến lược được ghi vào model đang có, không tạo file riêng.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">8</span>Xuất model</b><ul class="workflowList"><li>Quay lại Mục 8.</li><li>Bấm <b>Xuất model vận hành cho mục 10</b>.</li><li>File cần copy vào SCADA là model có chữ ký hợp lệ.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">0</span>Xuất cấu hình</b><ul class="workflowList"><li>Xuất cấu hình nếu muốn giữ ánh xạ cột, ngày lễ, ngưỡng cảnh báo.</li><li>Copy kèm model sang máy SCADA nếu cần.</li></ul></div>
+        </div>
+      </details>
+
+      <details style="margin-top:10px">
+        <summary>Luồng B - Máy trong mạng SCADA: nạp model và dự báo nhanh</summary>
+        <div class="workflowGrid">
+          <div class="workflowStep"><b><span class="num">0</span>Chọn chế độ SCADA</b><ul class="workflowList"><li>Chọn <b>SCADA: dự báo nhanh + cảnh báo</b>.</li><li>Có thể nạp cấu hình đã xuất từ luồng A để giữ ánh xạ cột, ngày lễ và ngưỡng.</li><li>Không cần huấn luyện lại nếu chỉ vận hành.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">1</span>Nạp dữ liệu mới</b><ul class="workflowList"><li>Được phép nạp <b>dữ liệu mới</b> từ SCADA/công tơ, không bắt buộc cùng file đã huấn luyện.</li><li>Dữ liệu mới phải cùng ý nghĩa cột, cùng đơn vị MW và cùng quy tắc chỉ danh Đơn vị/Trạm/Lộ/Nối vòng.</li><li>Kiểm tra sheet nếu là Excel.</li></ul></div>
+          <div class="workflowStep"><b><span class="num">2-3</span>Ánh xạ và tách chỉ danh</b><ul class="workflowList"><li>Áp dụng cùng ánh xạ cột như luồng A, hoặc nạp config đã xuất.</li><li>Bấm tách chỉ danh nếu dữ liệu chưa có cột LV6.</li><li>Nếu phát sinh trạm/lộ mới chưa có trong model, nên huấn luyện bổ sung ở luồng A rồi xuất lại model.</li></ul></div>
+          <div class="workflowStep warn"><b><span class="num">10</span>Nạp model vận hành</b><ul class="workflowList"><li>Chỉ chọn file xuất từ <b>Mục 8</b>.</li><li>Model dùng được cho <b>dữ liệu mới</b> nếu dữ liệu cùng cấu trúc và cùng nhóm chỉ danh đã học.</li><li>Không dùng model cho dữ liệu khác đơn vị đo, khác quy tắc chỉ danh, hoặc trạm/lộ chưa từng huấn luyện nếu chưa kiểm thử sai số.</li><li>App sẽ từ chối config, báo cáo hoặc JSON không có chữ ký.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">10</span>Dự báo</b><ul class="workflowList"><li>Chọn trạm/lộ hoặc tất cả.</li><li>Bấm dự báo.</li><li>Xem model_used, strategy_method, dự báo và sai số/bù nếu có.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">10.1</span>LV8.5 - Dự báo đa cấp</b><ul class="workflowList"><li>Chọn kiểu dự báo: 15/30/60 phút, 24 giờ hoặc 7 ngày.</li><li>Chọn điểm bắt đầu: sau mốc cuối dữ liệu, ngày hiện tại, thời điểm hiện tại, hoặc ngày/giờ tự chọn.</li><li>Bấm <b>Dự báo theo kiểu LV8.5</b>, hoặc bấm thẳng <b>Tạo báo cáo đa cấp LV8.5</b>; nếu chưa có forecast, app sẽ tự dự báo trước.</li><li>Nếu cần dự báo tiếp, bấm <b>Cập nhật forecast vào dữ liệu RAM</b>, sau đó dự báo tiếp từ mốc vừa cập nhật.</li><li>Kiểm tra Pmax, giờ Pmax, sản lượng ngày, phụ tải theo ca và cảnh báo theo ngưỡng.</li><li>Xuất <span class="miniCode">forecast_summary_lv8_5.csv</span> để báo cáo vận hành.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">10.2</span>Đánh giá sai số</b><ul class="workflowList"><li>Sau khi có dữ liệu thực tế, nạp file thực tế và file dự báo đã xuất.</li><li>Bấm <b>Đánh giá từ 2 file đã chọn</b> để tính sai số từng mốc.</li><li>Xuất chi tiết/tổng hợp sai số nếu cần lưu hồ sơ.</li></ul></div>
+          <div class="workflowStep warn"><b><span class="num">10.3</span>Hiệu chỉnh model</b><ul class="workflowList"><li>Từ kết quả 10.2, bấm <b>Tạo bảng hiệu chỉnh</b>.</li><li>Bấm <b>Áp dụng hiệu chỉnh vào model</b> nếu muốn bù sai số cho lần dự báo sau.</li><li>Xuất <span class="miniCode">model_gbdt_lv8_5_calibrated.json</span> để dùng trong SCADA.</li></ul></div>
+          <div class="workflowStep bad"><b><span class="num">11</span>Cảnh báo</b><ul class="workflowList"><li>Nạp hoặc nhập ngưỡng vận hành.</li><li>Kiểm tra cảnh báo quá tải.</li><li>Xuất forecast/cảnh báo nếu cần báo cáo.</li></ul></div>
+        </div>
+      </details>
+
+      <details style="margin-top:10px">
+        <summary>Bảng nhớ nhanh: mục nào dùng để làm gì?</summary>
+        <div class="tablewrap smallTable" style="margin-top:8px">
+          <table>
+            <thead><tr><th>Mục</th><th>Mục đích</th><th>Khi nào phải dùng?</th><th>Kết quả đầu ra</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>Chọn chế độ, lưu/nạp cấu hình, ép cập nhật</td><td>Đầu ca hoặc khi thay bản mới</td><td>Cấu hình offline, cache mới</td></tr>
+              <tr><td>1</td><td>Nạp dữ liệu phụ tải</td><td>Luôn dùng đầu tiên sau khi chọn chế độ</td><td>Dữ liệu thô</td></tr>
+              <tr><td>2</td><td>Ánh xạ cột</td><td>Khi file mới hoặc đổi mẫu cột</td><td>Dữ liệu chuẩn hóa</td></tr>
+              <tr><td>3</td><td>Tách chỉ danh Đơn vị/Trạm/Lộ/Nối vòng</td><td>Khi cột chỉ danh có dạng Đơn vị/Trạm/Lộ hoặc có dấu _ nối vòng</td><td>Các cột LV6 và khóa dự báo</td></tr>
+              <tr><td>4-7</td><td>Làm sạch dữ liệu và phân tích vận hành</td><td>Trước khi huấn luyện hoặc khi thấy P=0/chuyển tải/sự cố/mất mốc</td><td>Mục 4 chỉ hiện dòng lỗi/sự kiện, dòng liền trước-sau mốc thiếu, báo cáo lỗi/sự kiện</td></tr>
+              <tr><td>8</td><td>Huấn luyện GBDT và xuất model vận hành</td><td>Chỉ ở máy mạng ngoài hoặc khi cần tạo model mới</td><td>model_gbdt_lv8_operational.json</td></tr>
+              <tr><td>9</td><td>So sánh mô hình và áp dụng chiến lược</td><td>Sau khi huấn luyện Mục 8, trước khi xuất model</td><td>strategyByStation được ghi vào model</td></tr>
+              <tr><td>10</td><td>Nạp model vận hành và dự báo trong SCADA</td><td>Trong mạng SCADA hoặc khi test model đã xuất</td><td>forecast_lv8.csv</td></tr>
+              <tr><td>10.1</td><td>Dự báo đa cấp LV8.5</td><td>Có model Mục 10; có thể tự tạo forecast nếu chưa có</td><td>Pmax, giờ Pmax, sản lượng, ca vận hành, forecast_summary_lv8_5.csv</td></tr>
+              <tr><td>10.2</td><td>Đánh giá chất lượng dự báo</td><td>Sau khi có dữ liệu thực tế tương ứng với forecast</td><td>forecast_error_detail_lv8_5.csv, forecast_error_summary_lv8_5.csv</td></tr>
+              <tr><td>10.3</td><td>Hiệu chỉnh mô hình từ sai số</td><td>Sau khi đánh giá ở Mục 10.2 và muốn cải thiện dự báo sau</td><td>calibration_lv8_5.json, model_gbdt_lv8_5_calibrated.json</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <div class="statusBox" style="margin-top:10px">
+        <span class="pill warn">Lưu ý quan trọng</span>
+        <span class="note">Sau khi sửa dữ liệu ở Mục 4/5/6/7 phải bấm <b>Lưu thay đổi vào dữ liệu</b> trước khi huấn luyện. Sau khi so sánh ở Mục 9 phải bấm <b>Áp dụng</b>, rồi quay lại Mục 8 để <b>Xuất model vận hành cho mục 10</b>. Sau khi có kết quả đánh giá ở Mục 10.2, có thể dùng Mục 10.3 để tạo hiệu chỉnh và xuất model đã hiệu chỉnh.</span>
+      </div>
+    </div>
+
     <div class="card span4">
       <h2>1) Nạp dữ liệu từ file</h2>
       <label>File dữ liệu phụ tải</label>
       <input id="csvFile" type="file" accept=".csv,.txt,.tsv,.json,.xlsx,.xlsm,.xls" />
-      <div class="note">LV5.3 ưu tiên SheetJS xlsx.full.min.js nội bộ nếu có; nếu chưa thay file chính thức, app tự dùng bộ đọc lite để đọc .xlsx/.xlsm cơ bản. File .xls nhị phân cũ cần SheetJS full.</div>
+      <div class="note">LV7 ưu tiên SheetJS xlsx.full.min.js nội bộ nếu có; giữ quy tắc tách chỉ danh Đơn vị/Trạm/Lộ/Lộ nối vòng và bổ sung tự chọn mô hình dự báo offline.</div>
       <div id="dataInfo" style="margin-top:10px"></div>
       <label id="sheetLabel" style="display:none">Sheet Excel</label>
       <select id="sheetSelect" style="display:none"></select>
@@ -114,8 +232,30 @@
       </div>
     </div>
 
+    <div class="card span12">
+      <h2>3) Quy tắc chỉ danh LV6: Đơn vị / Trạm / Lộ / Lộ nối vòng</h2>
+      <div class="toolbar">
+        <div class="span8">
+          <label>Quy tắc đọc cột Trạm/Lộ/Khu vực</label>
+          <div class="statusBox">
+            <span class="pill ok">Đơn vị/Trạm/Lộ</span>
+            <span class="pill warn">Đơn vị/Trạm/Lộ_Đơn vị nối vòng/Trạm nối vòng/Lộ nối vòng</span>
+            <div class="compactNote" style="margin-top:6px">Ví dụ: <b>Tuyên Quang/E22.1/473_Hà Giang/E14.1/471</b> → Đơn vị Tuyên Quang, Trạm E22.1, Lộ 473; nối vòng tới Đơn vị Hà Giang, Trạm E14.1, Lộ 471. Ví dụ <b>Hà Giang/E14.2/473</b> → không có lộ nối vòng.</div>
+          </div>
+        </div>
+        <div class="span4">
+          <label>Thao tác</label>
+          <div class="row">
+            <button class="secondary" id="parseDesignationBtn">Tách chỉ danh LV6 vào cột riêng</button>
+            <button class="secondary" id="exportDesignationBtn">Xuất designation_map.csv</button>
+          </div>
+        </div>
+      </div>
+      <div id="designationInfo" class="statusBox" style="margin-top:10px"><span class="pill">Chưa phân tích chỉ danh</span></div>
+    </div>
+
     <div class="card span12 modeExternal">
-      <h2>3) Hiệu chỉnh dữ liệu trước khi huấn luyện</h2>
+      <h2>4) Hiệu chỉnh dữ liệu trước khi huấn luyện</h2>
       <div class="toolbar">
         <div class="span3"><label>Tìm kiếm nhanh</label><input id="editorSearch" placeholder="lọc theo trạm, ngày, ghi chú..." /></div>
         <div class="span2"><label>Bộ lọc</label><select id="editorFilter"><option value="all">Tất cả</option><option value="invalid">Dòng lỗi thời gian/P</option><option value="abnormal">Bất thường/cắt điện/chuyển tải</option></select></div>
@@ -141,6 +281,10 @@
           <button class="secondary" id="vietnamizeHeadersBtn">Đổi tiêu đề cột sang tiếng Việt</button>
         </div>
         <div class="compactNote">Bộ lọc ngày chỉ giới hạn bảng hiệu chỉnh. Dữ liệu gốc vẫn còn đầy đủ để huấn luyện/dự báo.</div>
+        <div id="editorFocusNotice" class="statusBox" style="margin-top:8px"><span class="pill ok">Bảng đang hiển thị theo bộ lọc thường</span></div>
+        <div class="row" style="margin-top:8px">
+          <button class="secondary" id="clearEditorFocusBtn">Bỏ chế độ chỉ hiện dòng lỗi/sự kiện</button>
+        </div>
       </div>
 
       <div class="toolPanel">
@@ -192,7 +336,7 @@
 
 
     <div class="card span6 modeExternal">
-      <h2>4) Kiểm tra chất lượng dữ liệu</h2>
+      <h2>5) Kiểm tra chất lượng dữ liệu</h2>
       <div class="toolbar">
         <div class="span3"><label>Ngưỡng đột biến P (%)</label><input id="spikePercent" type="number" value="35" min="5" max="300"></div>
         <div class="span3"><label>Ngưỡng P thấp bất thường</label><input id="minValidP" type="number" value="0" step="0.001"></div>
@@ -200,16 +344,19 @@
         <div class="span3"><label>&nbsp;</label><button class="good" id="runQualityBtn">Kiểm tra dữ liệu</button></div>
       </div>
       <div class="row" style="margin-top:10px">
+        <button class="secondary" id="showQualityInEditorBtn">Chỉ hiện dòng lỗi tại Mục 4</button>
         <button class="secondary" id="selectQualityRowsBtn">Chọn dòng lỗi trên bảng hiệu chỉnh</button>
+        <button class="secondary" id="showMissingInEditorBtn">Chỉ hiện dòng liền trước và liền sau mốc thiếu</button>
         <button class="warn" id="markQualityAbnormalBtn">Đánh dấu bất thường các dòng lỗi</button>
         <button class="secondary" id="exportQualityBtn">Xuất quality_report.csv</button>
       </div>
+      <div class="compactNote">LV7.6: Bấm <b>Kiểm tra dữ liệu</b> sẽ kiểm tra toàn bộ dữ liệu đang ở RAM và tự ép bảng Mục 4 chỉ hiện dòng lỗi. Với lỗi mất mốc, nút <b>Chỉ hiện dòng liền trước và liền sau mốc thiếu</b> giúp xem đủ hai mốc neo để quyết định nội suy.</div>
       <div id="qualitySummary" class="statusBox" style="margin-top:10px"><span class="pill">Chưa kiểm tra</span></div>
       <div id="qualityBox" class="tablewrap smallTable" style="margin-top:10px"><table><tbody><tr><td>Chưa có báo cáo</td></tr></tbody></table></div>
     </div>
 
     <div class="card span6 modeExternal">
-      <h2>5) Nội suy / bổ sung dữ liệu mất mẫu</h2>
+      <h2>6) Nội suy / bổ sung dữ liệu mất mẫu</h2>
       <div class="toolbar">
         <div class="span3"><label>Phạm vi</label><select id="interpScope"><option value="current">Trạm/lộ đang chọn</option><option value="all">Tất cả trạm/lộ</option></select></div>
         <div class="span3"><label>Phương pháp P</label><select id="interpMethod"><option value="linear">Tuyến tính giữa 2 mốc</option><option value="prev">Giữ giá trị trước</option><option value="day">Ưu tiên cùng giờ hôm trước</option><option value="week">Ưu tiên cùng giờ tuần trước</option></select></div>
@@ -226,8 +373,28 @@
       <div class="compactNote">Mốc bổ sung/nội suy được đánh dấu bằng <b>du_lieu_noi_suy</b>, <b>ghi_chu_xu_ly</b>. Khi nội suy P, app lưu giá trị cũ vào <b>p_goc</b>. Dòng có cờ cắt điện/chuyển tải/bất thường có thể vẫn bị <b>bo_khoi_huan_luyen</b> để model không học sai, nhưng P đã nội suy sẽ giúp chuỗi thời gian/lag không bị gãy.</div>
     </div>
 
+    <div class="card span12 modeExternal">
+      <h2>7) Phân tích sự kiện vận hành & chuyển tải chéo LV6</h2>
+      <div class="toolbar">
+        <div class="span3"><label>Ngưỡng sụt P để xét sự kiện (%)</label><input id="operationDropPercent" type="number" value="35" min="5" max="100"></div>
+        <div class="span3"><label>Dung sai lộ nhận tải (%)</label><input id="transferTolerancePercent" type="number" value="30" min="5" max="200"></div>
+        <div class="span3"><label>Cửa sổ so sánh cùng thời điểm</label><select id="operationTimeWindow"><option value="same">Đúng cùng mốc</option><option value="near">±1 mốc gần nhất</option></select></div>
+        <div class="span3"><label>&nbsp;</label><button class="good" id="analyzeOperationBtn">Phân tích chuyển tải / P=0</button></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="showOperationInEditorBtn">Chỉ hiện dòng sự kiện tại Mục 4</button>
+        <button class="secondary" id="selectOperationRowsBtn">Chọn dòng sự kiện trên bảng hiệu chỉnh</button>
+        <button class="secondary" id="restoreOriginalPBtn">Khôi phục P nền cho dòng chọn</button>
+        <button class="secondary" id="compareEditsBtn">So sánh trước/sau hiệu chỉnh</button>
+        <button class="secondary" id="exportOperationBtn">Xuất operation_event_report.csv</button>
+      </div>
+      <div class="compactNote">LV7.6: Sau khi phân tích vận hành, Mục 4 có thể tự khóa theo các dòng sự kiện để sửa nhanh, nội suy, khôi phục P nền hoặc bỏ khỏi huấn luyện. Có thể bấm <b>Bỏ chế độ chỉ hiện dòng lỗi/sự kiện</b> ở Mục 4 để quay lại bảng đầy đủ.</div>
+      <div id="operationSummary" class="statusBox" style="margin-top:10px"><span class="pill">Chưa phân tích sự kiện</span></div>
+      <div id="operationBox" class="tablewrap smallTable" style="margin-top:10px"><table><tbody><tr><td>Chưa có báo cáo vận hành LV6.1</td></tr></tbody></table></div>
+    </div>
+
     <div class="card span5 modeExternal">
-      <h2>6) Huấn luyện model GBDT / model riêng theo trạm-lộ</h2>
+      <h2>8) Huấn luyện và xuất gói model vận hành</h2>
       <div class="grid" style="gap:8px">
         <div class="span4"><label>Số cây</label><input id="nTrees" type="number" min="5" max="300" value="70"></div>
         <div class="span4"><label>Độ sâu cây</label><input id="maxDepth" type="number" min="1" max="6" value="3"></div>
@@ -239,10 +406,10 @@
       <div class="row" style="margin-top:12px">
         <button class="good" id="trainBtn">Huấn luyện GBDT cho trạm/lộ đang chọn</button>
         <button class="good" id="trainAllStationsBtn">Huấn luyện theo từng trạm/lộ</button>
-        <button class="warn" id="exportModelBtn" disabled>Xuất model_gbdt.json</button>
+        <button class="warn" id="exportModelBtn" disabled>Xuất model vận hành cho mục 10</button>
       </div>
       <details style="margin-top:12px" open>
-        <summary>Trọng số mô hình lai LV5</summary>
+        <summary>8A) Tham số huấn luyện GBDT và trọng số Hybrid mặc định</summary>
         <div class="toolbar" style="margin-top:8px">
           <div class="span2"><label>GBDT</label><input id="wGbdt" type="number" step="0.05" value="0.50"></div>
           <div class="span2"><label>Similar Day</label><input id="wSimilar" type="number" step="0.05" value="0.25"></div>
@@ -253,26 +420,190 @@
         </div>
       </details>
       <details style="margin-top:12px">
-        <summary>Ghi chú vận hành</summary>
-        <p class="note">Khi huấn luyện, các dòng có cờ bất thường/cắt điện/chuyển tải = 1 sẽ bị loại để tránh model học sai. Có thể sửa cờ ngay trong bảng hiệu chỉnh trước khi huấn luyện.</p>
+        <summary>8B) Làm rõ mô hình huấn luyện</summary>
+        <div class="note">
+          <p><b>GBDT</b>: model học từ dữ liệu lịch sử đã làm sạch; đây là thành phần duy nhất có cây quyết định và được lưu trong file model.</p>
+          <p><b>Model riêng theo trạm/lộ</b>: khi bấm “Huấn luyện theo từng trạm/lộ” hoặc “Huấn luyện + tự chọn tất cả”, mỗi chỉ danh LV6 có một GBDT riêng trong cùng một gói model.</p>
+          <p><b>Similar Day, cùng giờ tuần trước, xu hướng gần nhất, Hybrid, Auto Blend</b>: là các chiến lược dự báo/baseline dùng để so sánh và phối hợp với GBDT. Chúng không phải file model riêng; chiến lược được chọn sẽ được ghi kèm trong gói model xuất ở Mục 8.</p>
+          <p>Khi huấn luyện, các dòng có cờ bất thường/cắt điện/chuyển tải = 1 hoặc <b>bo_khoi_huan_luyen = 1</b> sẽ bị loại để tránh model học sai.</p>
+        </div>
       </details>
     </div>
 
-    <div class="card span7">
-      <h2>7) Dùng model trong SCADA offline</h2>
-      <label>Nạp model_gbdt.json đã huấn luyện</label>
+
+    <div class="card span7 modeExternal">
+      <h2>9) So sánh mô hình & áp dụng chiến lược vào model</h2>
+      <div class="toolbar">
+        <div class="span4"><label>Chiến lược khi dự báo</label><select id="forecastStrategy">
+          <option value="auto">Tự động theo LV7 đã chọn</option>
+          <option value="gbdt">Chỉ GBDT</option>
+          <option value="similar_day">Similar Day</option>
+          <option value="same_hour_last_week">Cùng giờ tuần trước</option>
+          <option value="trend">Xu hướng gần nhất</option>
+          <option value="hybrid_current">Hybrid trọng số hiện tại</option>
+          <option value="auto_blend">Auto Blend theo sai số</option>
+        </select></div>
+        <div class="span8"><label>Thao tác LV7</label><div class="row">
+          <button class="good" id="evaluateModelsBtn">So sánh mô hình trạm/lộ đang chọn</button>
+          <button class="good" id="selectBestModelBtn">Áp dụng gợi ý tốt nhất cho trạm/lộ</button>
+          <button class="secondary" id="applySelectedStrategyBtn">Áp dụng chiến lược đang chọn</button>
+          <button class="secondary" id="applyAllReportedStrategiesBtn">Áp dụng gợi ý từ bảng so sánh</button>
+          <button class="warn" id="trainSelectBestAllBtn">Huấn luyện + áp dụng tốt nhất tất cả</button>
+        </div></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="exportModelReportBtn">Xuất model_compare_lv8.csv</button>
+        <button class="secondary" id="exportHourlyReportBtn">Xuất hourly_error_lv8.csv</button>
+      </div>
+      <div id="lv7ModelSummary" class="statusBox" style="margin-top:10px"><span class="pill">Chưa so sánh mô hình LV7</span></div>
+      <div id="lv7ApplyStatus" class="statusBox" style="margin-top:10px"><span class="pill">Chưa áp dụng chiến lược nào vào model</span></div>
+      <details style="margin-top:10px" open>
+        <summary>Bảng xếp hạng mô hình theo validation</summary>
+        <div id="lv7ModelBox" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có kết quả so sánh mô hình</td></tr></tbody></table></div>
+      </details>
+      <details style="margin-top:10px">
+        <summary>Sai số theo từng giờ trong ngày</summary>
+        <div id="lv7HourlyBox" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có báo cáo sai số theo giờ</td></tr></tbody></table></div>
+      </details>
+      <p class="note"><b>Mục 9 không tạo file model độc lập, nhưng được phép áp dụng chiến lược.</b> Luồng đúng là: <b>So sánh mô hình</b> → <b>Áp dụng gợi ý tốt nhất</b> hoặc <b>Áp dụng chiến lược đang chọn</b> → quay lại <b>Mục 8 → Xuất model vận hành cho mục 10</b>. File ở Mục 10 vẫn phải là file model vận hành đã xuất, nhưng bên trong file đó sẽ có chiến lược đã áp dụng từ Mục 9.</p>
+    </div>
+
+    <div class="card span12">
+      <h2>10) Dùng model trong SCADA offline</h2>
+      <label>Nạp model vận hành đã xuất từ Mục 8</label>
       <input id="modelFile" type="file" accept=".json" />
+      <div class="compactNote">LV7.6 sẽ từ chối file JSON thường, file cấu hình, báo cáo hoặc model cũ không có chữ ký <b>exportSource = MUC_8_EXPORT_MODEL</b>. Hãy dùng đúng file được tạo bằng nút <b>“Xuất model vận hành cho mục 10”</b> ở Mục 8.</div>
       <div class="row" style="margin-top:10px">
         <div><label>Số bước dự báo</label><input id="forecastSteps" type="number" min="1" max="336" value="24"></div>
         <div><label>Nhiệt độ tương lai mặc định</label><input id="futureTemp" type="number" step="0.1" placeholder="Bỏ trống = lấy gần nhất"></div>
         <div><label>Mưa tương lai</label><select id="futureRain"><option value="0">Không</option><option value="1">Có</option></select></div>
+        <div><label>Chiến lược dự báo LV7</label><select id="forecastStrategyScada"><option value="auto">Tự động theo model</option><option value="gbdt">Chỉ GBDT</option><option value="similar_day">Similar Day</option><option value="same_hour_last_week">Cùng giờ tuần trước</option><option value="trend">Xu hướng gần nhất</option><option value="hybrid_current">Hybrid hiện tại</option><option value="auto_blend">Auto Blend</option></select></div>
       </div>
       <div class="row" style="margin-top:12px">
         <button id="forecastBtn" disabled>Dự báo trạm/lộ đang chọn</button>
         <button class="secondary" id="forecastAllBtn" disabled>Dự báo tất cả trạm/lộ</button>
         <button class="secondary" id="exportForecastBtn" disabled>Xuất forecast.csv</button>
       </div>
+      <details style="margin-top:12px" open>
+        <summary>10.1) LV8.5 - Dự báo đa cấp cho điều độ</summary>
+        <div class="toolbar" style="margin-top:8px">
+          <div class="span3"><label>Kiểu dự báo nhanh</label><select id="lv8HorizonMode">
+            <option value="current_steps">Theo số bước đang nhập ở Mục 10</option>
+            <option value="next_15m">15 phút / ít nhất 1 chu kỳ</option>
+            <option value="next_30m">30 phút / ít nhất 1 chu kỳ</option>
+            <option value="next_60m">1 giờ tới</option>
+            <option value="next_day">24 giờ / 1 ngày</option>
+            <option value="next_2_days">48 giờ / 2 ngày</option>
+            <option value="next_7_days">7 ngày / 168 giờ</option>
+          </select></div>
+          <div class="span3"><label>Điểm bắt đầu dự báo LV8.5</label><select id="lv82StartMode">
+            <option value="after_latest">Sau mốc cuối dữ liệu từng chỉ danh</option>
+            <option value="today_00">Ngày hiện tại 00:00</option>
+            <option value="now_next">Mốc hiện tại / mốc kế tiếp theo chu kỳ</option>
+            <option value="custom_datetime">Ngày/giờ tự chọn</option>
+          </select></div>
+          <div class="span3"><label>Ngày/giờ tự chọn</label><input id="lv82StartDateTime" type="datetime-local"></div>
+          <div class="span3"><label>Khi cập nhật forecast vào dữ liệu</label><select id="lv82AppendMode">
+            <option value="overwrite">Ghi đè nếu trùng thời gian + chỉ danh</option>
+            <option value="skip_existing">Bỏ qua dòng đã có</option>
+            <option value="append_duplicate">Vẫn thêm dòng mới</option>
+          </select></div>
+          <div class="span3"><label>Ca vận hành</label><select id="lv8ShiftMode">
+            <option value="standard">Đêm 00-06 / Sáng 06-12 / Chiều 12-18 / Tối 18-24</option>
+            <option value="dispatch_3shift">Ca 1 06-14 / Ca 2 14-22 / Ca 3 22-06</option>
+          </select></div>
+          <div class="span6"><label>Thao tác LV8.5</label><div class="row">
+            <button class="good" id="lv8QuickForecastBtn" disabled>Dự báo theo kiểu LV8.5 đang chọn</button>
+            <button class="secondary" id="lv8SummaryBtn" disabled>Tạo báo cáo đa cấp LV8.5</button>
+            <button class="secondary" id="lv82AppendForecastBtn" disabled>Cập nhật forecast vào dữ liệu RAM</button>
+            <button class="secondary" id="lv8ExportSummaryBtn" disabled>Xuất forecast_summary_lv8_5.csv</button>
+          </div></div>
+        </div>
+        <div class="compactNote"><b>Ý nghĩa mốc dự báo LV8.5:</b> phần <b>Kiểu dự báo</b> xác định độ dài khoảng dự báo; phần <b>Điểm bắt đầu</b> xác định dự báo bắt đầu từ đâu. Có thể dự báo cho <b>ngày hiện tại</b> hoặc ngày/giờ tự chọn, không bắt buộc phải là mốc tiếp theo của dữ liệu mẫu. Nếu dữ liệu có chu kỳ 60 phút thì lựa chọn 15/30 phút vẫn tạo ít nhất 1 bước theo chu kỳ 60 phút.</div>
+        <div class="compactNote">Nút <b>Cập nhật forecast vào dữ liệu RAM</b> sẽ chèn các mốc đã dự báo vào bảng dữ liệu đang mở, đánh dấu <span class="miniCode">du_lieu_du_bao=1</span> và <span class="miniCode">bo_khoi_huan_luyen=1</span>. Các mốc này dùng để <b>dự báo tiếp</b>, nhưng không đưa vào huấn luyện model thật.</div>
+        <div class="compactNote"><b>Thông báo thời gian LV8.5:</b> khi bấm dự báo, tạo báo cáo đa cấp hoặc cập nhật forecast vào RAM, app sẽ hiển thị trạng thái <b>đang thực hiện</b>, thời điểm bắt đầu/kết thúc, thời gian xử lý và số dòng đã xử lý ngay bên dưới khu thao tác.</div>
+        <div class="compactNote">LV8.5 dùng chính model vận hành ở Mục 10. Model có thể dùng cho dữ liệu mới nếu dữ liệu cùng cấu trúc, cùng đơn vị MW, cùng quy tắc chỉ danh và thuộc phạm vi chỉ danh đã huấn luyện. Nút <b>Tạo báo cáo đa cấp LV8.5</b> sẽ tự chạy dự báo trước nếu chưa có kết quả forecast.</div>
+        <div id="lv8HorizonExplainBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa chọn / chưa tính mốc dự báo LV8.5</span></div>
+        <div id="lv8SummaryBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có báo cáo đa cấp LV8.5</span></div>
+        <div id="lv83ActionStatus" class="statusBox" style="margin-top:10px"><span class="pill">Trạng thái thao tác LV8.5</span><span class="pill">Chưa chạy tạo báo cáo/cập nhật RAM</span></div>
+        <div id="lv8SummaryTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có dữ liệu tổng hợp LV8.5</td></tr></tbody></table></div>
+      </details>
+
+      <details style="margin-top:12px" open>
+        <summary>10.2) LV8.5 - Đánh giá chất lượng dự báo theo dữ liệu thực tế</summary>
+        <div class="compactNote"><b>Mục đích:</b> nạp <b>2 file</b> gồm dữ liệu thực tế và dữ liệu dự báo, ghép theo <b>thời gian + chỉ danh/trạm/lộ</b>, sau đó tính sai số từng mốc. Có thể dùng file forecast đã xuất từ Mục 10/10.1 hoặc dùng forecast đang có trong RAM.</div>
+        <div class="toolbar" style="margin-top:8px">
+          <div class="span4"><label>File dữ liệu thực tế sau vận hành</label><input id="lv84ActualFile" type="file" accept=".csv,.txt,.tsv,.json,.xlsx,.xlsm,.xlsb,.xls"></div>
+          <div class="span4"><label>File dữ liệu dự báo đã xuất</label><input id="lv84ForecastFile" type="file" accept=".csv,.txt,.tsv,.json,.xlsx,.xlsm,.xlsb,.xls"></div>
+          <div class="span2"><label>Ngưỡng đạt yêu cầu MAPE %</label><input id="lv84MapeLimit" type="number" step="0.1" value="5"></div>
+          <div class="span2"><label>Sai số lớn MW cảnh báo</label><input id="lv84MaeWarnMw" type="number" step="0.1" value="2"></div>
+          <div class="span12"><label>Thao tác đánh giá LV8.5</label><div class="row">
+            <button class="good" id="lv84EvalFilesBtn">Đánh giá từ 2 file đã chọn</button>
+            <button class="secondary" id="lv84EvalRamBtn">Đánh giá RAM hiện có + forecast hiện có</button>
+            <button class="secondary" id="lv84ExportDetailBtn" disabled>Xuất chi tiết sai số LV8.5</button>
+            <button class="secondary" id="lv84ExportSummaryBtn" disabled>Xuất tổng hợp sai số LV8.5</button>
+            <button class="secondary" id="lv84ExportHistoryBtn">Xuất lịch sử đánh giá</button>
+            <button class="danger" id="lv84ClearHistoryBtn">Xóa lịch sử đánh giá</button>
+          </div></div>
+        </div>
+        <div class="compactNote"><b>Cột cần có:</b> dữ liệu thực tế cần cột thời gian, chỉ danh/trạm/lộ và P thực tế. Dữ liệu dự báo cần cột thời gian, chỉ danh/trạm/lộ và P dự báo. App sẽ tự nhận dạng các tên cột phổ biến như <span class="miniCode">Thời gian</span>, <span class="miniCode">station</span>, <span class="miniCode">forecast_p_mw</span>, <span class="miniCode">P</span>. Nếu thiếu chỉ danh, app sẽ ghép theo thời gian cho toàn bộ.</div>
+        <div id="lv84EvalStatus" class="statusBox" style="margin-top:10px"><span class="pill">Trạng thái đánh giá LV8.5</span><span class="pill">Chưa đánh giá</span></div>
+        <div id="lv84EvalSummaryBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có tổng hợp sai số</span></div>
+        <div id="lv84EvalTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có chi tiết sai số từng thời điểm.</td></tr></tbody></table></div>
+        <details style="margin-top:8px"><summary>Lịch sử đánh giá đã lưu trong trình duyệt</summary><div id="lv84HistoryBox" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có lịch sử đánh giá.</td></tr></tbody></table></div></details>
+      </details>
+
+
+      <details style="margin-top:12px" open>
+        <summary>10.3) LV8.5 - Hiệu chỉnh mô hình từ kết quả đánh giá</summary>
+        <div class="compactNote"><b>Mục đích:</b> dùng kết quả sai số ở Mục 10.2 để tạo bảng bù sai số theo <b>toàn hệ thống / từng chỉ danh / từng giờ</b>. Hiệu chỉnh này dùng cho model vận hành hiện tại, không dùng dữ liệu dự báo để huấn luyện thật.</div>
+        <div class="toolbar" style="margin-top:8px">
+          <div class="span3"><label>Phạm vi hiệu chỉnh khi dự báo</label><select id="lv85ApplyScope">
+            <option value="station_hour_station_hour_total">Ưu tiên chỉ danh+giờ → chỉ danh → giờ → toàn bộ</option>
+            <option value="station_hour_station_total">Ưu tiên chỉ danh+giờ → chỉ danh → toàn bộ</option>
+            <option value="station_only">Chỉ theo từng chỉ danh</option>
+            <option value="hour_only">Chỉ theo giờ trong ngày</option>
+            <option value="total_only">Chỉ bù chung toàn bộ</option>
+          </select></div>
+          <div class="span3"><label>Kiểu bù sai số</label><select id="lv85CorrectionMode">
+            <option value="mw">Bù MW: P mới = P cũ + bias_mw</option>
+            <option value="percent">Bù %: P mới = P cũ × hệ số</option>
+            <option value="combined">Kết hợp MW + % có giới hạn</option>
+          </select></div>
+          <div class="span2"><label>Số mẫu tối thiểu mỗi nhóm</label><input id="lv85MinSamples" type="number" min="1" step="1" value="3"></div>
+          <div class="span2"><label>Giới hạn bù tối đa %</label><input id="lv85MaxPct" type="number" min="1" step="1" value="15"></div>
+          <div class="span2"><label>Chế độ áp dụng</label><select id="lv85EnableMode">
+            <option value="enabled">Áp dụng khi dự báo</option>
+            <option value="disabled">Chỉ tạo báo cáo, chưa áp dụng</option>
+          </select></div>
+          <div class="span12"><label>Thao tác hiệu chỉnh LV8.5</label><div class="row">
+            <button class="good" id="lv85BuildCalibrationBtn">Tạo bảng hiệu chỉnh từ đánh giá LV8.5</button>
+            <button class="secondary" id="lv85ApplyCalibrationBtn" disabled>Áp dụng hiệu chỉnh vào model đang nạp</button>
+            <button class="secondary" id="lv85ExportCalibrationBtn" disabled>Xuất calibration_lv8_5.json</button>
+            <button class="secondary" id="lv85ExportModelBtn" disabled>Xuất model_gbdt_lv8_5_calibrated.json</button>
+            <button class="secondary" id="lv85ExportReportBtn" disabled>Xuất calibration_report_lv8_5.csv</button>
+            <button class="danger" id="lv85ClearCalibrationBtn">Tắt hiệu chỉnh đang áp dụng</button>
+          </div></div>
+        </div>
+        <div class="compactNote"><b>Nguyên tắc:</b> BIAS ở Mục 10.2 được tính theo chiều <span class="miniCode">forecast - actual</span>. Vì vậy hiệu chỉnh sẽ bù ngược lại: nếu model thường dự báo thấp hơn thực tế, app sẽ cộng thêm; nếu dự báo cao hơn thực tế, app sẽ trừ bớt. Các nhóm có ít mẫu hơn ngưỡng tối thiểu sẽ không được dùng trực tiếp mà lùi về nhóm rộng hơn.</div>
+        <div id="lv85CalibrationStatus" class="statusBox" style="margin-top:10px"><span class="pill">Trạng thái hiệu chỉnh LV8.5</span><span class="pill">Chưa tạo hiệu chỉnh</span></div>
+        <div id="lv85CalibrationSummaryBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có bảng hiệu chỉnh</span></div>
+        <div id="lv85CalibrationTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có dữ liệu hiệu chỉnh.</td></tr></tbody></table></div>
+      </details>
+
+      <details style="margin-top:12px" open>
+        <summary>10.4) LV8.9 - So sánh dự báo trước/sau hiệu chỉnh</summary>
+        <div class="compactNote">Dùng khi forecast có cột <span class="miniCode">forecast_before_calibration_mw</span> và đã có dữ liệu thực tế trong RAM. Chức năng này giúp kiểm tra hiệu chỉnh LV8.5 có làm sai số tốt hơn hay xấu đi.</div>
+        <div class="row" style="margin-top:8px">
+          <button class="secondary" id="lv89CompareCalibrationBtn">So sánh trước/sau hiệu chỉnh</button>
+          <button class="secondary" id="lv89ExportCompareBtn" disabled>Xuất calibration_compare_lv8_9.csv</button>
+        </div>
+        <div id="lv89CompareStatus" class="statusBox" style="margin-top:10px"><span class="pill">Chưa so sánh trước/sau hiệu chỉnh</span></div>
+        <div id="lv89CompareTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có dữ liệu so sánh.</td></tr></tbody></table></div>
+      </details>
+
       <div id="modelInfo" style="margin-top:10px"></div>
+      <div id="modelImportGuard" class="statusBox" style="margin-top:10px"><span class="pill">Chưa nạp model vận hành</span></div>
       <details style="margin-top:12px" open>
         <summary>Ngưỡng cảnh báo vận hành</summary>
         <label>Danh sách ngưỡng: mỗi dòng = Trạm/Lộ, Cảnh báo MW, Nguy hiểm MW</label>
@@ -319,6 +650,7 @@ __ALL__,80,90"></textarea>
 <script src="libs/xlsx.full.min.js"></script>
 <script src="libs/sheetjs-xlsx-lite.js"></script>
 <script src="app.js"></script>
+<script src="workflow_lv9.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

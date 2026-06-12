@@ -1,13 +1,19 @@
-const CACHE_NAME = 'scada-load-forecast-pwa-lv5-4-20260611-01';
+const CACHE_NAME = 'scada-load-forecast-pwa-lv9-20260612-01';
 const APP_ASSETS = [
   './',
   './index.html',
   './app.js',
+  './workflow_lv9.js',
   './manifest.webmanifest',
   './favicon.ico',
   './favicon.svg',
   './sample_load_data.csv',
   './sample_load_data.xlsx',
+  './sample_load_data_lv6_chidanh.csv',
+  './sample_load_data_lv6_chidanh.xlsx',
+  './thresholds_lv6.csv',
+  './expected_operation_events_lv6.csv',
+  './README_sample_lv6.txt',
   './libs/pako.min.js',
   './libs/xlsx.full.min.js',
   './libs/sheetjs-xlsx-lite.js',
