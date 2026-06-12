@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="LoadForecast" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>SCADA Load Forecast Offline PWA LV9</title>
+  <title>SCADA Load Forecast Offline PWA LV9.8.1</title>
   <style>
     :root{
       --bg:#0b1220;--panel:#111c2f;--panel2:#16243b;--text:#e5edf7;--muted:#9fb0c6;
@@ -70,8 +70,8 @@
 </head>
 <body>
 <header>
-  <h1>SCADA Load Forecast Offline PWA LV9</h1>
-  <div class="sub">LV9: chuyển sang giao diện <b>Workflow / Workbench</b> theo 3 luồng A/B/C. Mặc định chỉ hiển thị bước đang thao tác để tăng không gian bảng và giảm khựng; vẫn giữ <b>Chế độ chuyên gia</b> để xem toàn bộ mục dọc. Dashboard và nhật ký chỉ quan sát, không khóa nút và không can thiệp lõi xử lý ổn định của LV8.6/LV8.9. Không CDN, không server ngoài, không pwa.js.</div>
+  <h1>SCADA Load Forecast Offline PWA LV9.8.1</h1>
+  <div class="sub">LV9.8.1: giao diện <b>Workflow / Workbench</b> theo 4 luồng A/S/B/C. Khung chức năng của bước đang thao tác được đưa lên ngay trong vùng làm việc, tránh phải thao tác ở phía dưới; vẫn giữ <b>Chế độ chuyên gia</b> để xem toàn bộ mục dọc. Dashboard và nhật ký chỉ quan sát, không khóa nút và không can thiệp lõi xử lý ổn định của LV8.6/LV8.9. Không CDN, không server ngoài, không pwa.js.</div>
 </header>
 <main>
   <section class="grid">
@@ -80,10 +80,10 @@
       <h2>0) Chế độ vận hành & cấu hình offline</h2>
       <div class="toolbar">
         <div class="span3"><label>Chế độ</label><select id="appMode"><option value="external">Mạng ngoài: hiệu chỉnh + huấn luyện</option><option value="scada">SCADA: dự báo nhanh + cảnh báo</option></select></div>
-        <div class="span3"><label>Tên cấu hình</label><input id="configName" value="SCADA_LOAD_FORECAST_LV9"></div>
+        <div class="span3"><label>Tên cấu hình</label><input id="configName" value="SCADA_LOAD_FORECAST_LV9_3"></div>
         <div class="span3"><label>Mốc dữ liệu mong muốn</label><select id="expectedInterval"><option value="auto">Tự nhận dạng</option><option value="5">5 phút</option><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">60 phút</option></select></div>
-        <div class="span3"><label>Trạng thái bản</label><div id="versionInfo"><span class="pill modeBadge">LV9</span></div></div>
-        <div class="span12"><div class="compactNote"><b>LV9 Workflow:</b> thêm giao diện từng bước A/B/C để người vận hành chỉ nhìn thấy phần cần thao tác. Chế độ này chỉ ẩn/hiện khung chức năng, không khóa nút và không thay đổi lõi dự báo/huấn luyện/hiệu chỉnh.</div></div>
+        <div class="span3"><label>Trạng thái bản</label><div id="versionInfo"><span class="pill modeBadge">LV9.8.1</span></div></div>
+        <div class="span12"><div class="compactNote"><b>LV9.8.1 Workbench:</b> đưa trực tiếp khung thao tác của bước hiện tại vào vùng làm việc bên phải, không còn phải kéo xuống dưới để thao tác. Chế độ này chỉ di chuyển/ẩn hiện khung chức năng, không khóa nút và không thay đổi lõi dự báo/huấn luyện/hiệu chỉnh.</div></div>
       </div>
       <div class="row" style="margin-top:10px">
         <button class="secondary" id="saveFullConfigBtn">Lưu cấu hình offline</button>
@@ -130,7 +130,7 @@
     <div class="card span12">
       <h2>0.1) Hướng dẫn luồng công việc cho người vận hành</h2>
       <div class="statusBox okBox">
-        <b>Nguyên tắc chung:</b> làm từ trên xuống dưới theo số mục. Có thể bấm <b>Thu gọn/Mở</b> tại tiêu đề từng khu vực để nhường không gian cho bảng Mục 4 hoặc chức năng đang thao tác. Từ LV8.9, mặc định dùng bố cục rộng toàn màn hình; có thể đổi sang <b>Rộng / Siêu rộng / Cố định 1480px</b> tại Mục 0.2. Dashboard LV8.9 và Nhật ký thao tác ở Mục 0.3/0.4 chỉ để theo dõi, không khóa nút. Bản này có 2 luồng: <b>Mạng ngoài</b> dùng để chuẩn hóa dữ liệu, huấn luyện và xuất model; <b>SCADA</b> dùng dữ liệu mới cùng cấu trúc/chỉ danh để nạp model đã xuất, dự báo và cảnh báo. Không nạp model ở Mục 10 trước khi đã có file model vận hành xuất từ Mục 8.
+        <b>Nguyên tắc chung:</b> làm từ trên xuống dưới theo số mục. Có thể bấm <b>Thu gọn/Mở</b> tại tiêu đề từng khu vực để nhường không gian cho bảng Mục 4 hoặc chức năng đang thao tác. Từ LV8.9, mặc định dùng bố cục rộng toàn màn hình; có thể đổi sang <b>Rộng / Siêu rộng / Cố định 1480px</b> tại Mục 0.2. Dashboard LV8.9 và Nhật ký thao tác ở Mục 0.3/0.4 chỉ để theo dõi, không khóa nút. Bản này có các luồng: <b>Mạng ngoài</b> dùng để chuẩn hóa dữ liệu, huấn luyện và xuất model; <b>SCADA</b> dùng dữ liệu mới cùng cấu trúc/chỉ danh để nạp model đã xuất, dự báo và cảnh báo. Không nạp model ở 10A trước khi đã có file model vận hành xuất từ Mục 8. Từ LV9.8.1, B1 hiển thị đúng 10B; B2 hiển thị đồng thời 10B và 10C1 để không mất các nút dự báo nhanh khi chạy dự báo đa cấp.
       </div>
 
       <details open style="margin-top:10px">
@@ -146,7 +146,7 @@
           <div class="workflowStep warn"><b><span class="num">7</span>Phân tích vận hành</b><ul class="workflowList"><li>Bấm <b>Phân tích chuyển tải / P=0</b>.</li><li>Mục 4 tự hiện các dòng sự kiện vận hành để rà soát.</li><li>Khi chạy Mục 7, app tự thu gọn Mục 5 và Mục 6 để tối ưu không gian thao tác.</li><li>Kiểm tra lộ giảm tải và lộ nhận tải theo lộ nối vòng.</li><li>Nếu cần phục hồi P nền: chọn dòng nguồn sự kiện rồi bấm khôi phục; nếu chuyển tải, app sẽ trừ phần P tương ứng ở lộ nhận.</li><li>Xuất <span class="miniCode">operation_event_report.csv</span> nếu cần.</li></ul></div>
           <div class="workflowStep good"><b><span class="num">8</span>Huấn luyện GBDT</b><ul class="workflowList"><li>Bấm huấn luyện cho trạm/lộ đang chọn hoặc toàn bộ.</li><li>Đây là nơi tạo gói model vận hành.</li><li>Chưa xuất model trước khi áp dụng chiến lược ở Mục 9.</li></ul></div>
           <div class="workflowStep good"><b><span class="num">9</span>So sánh và áp dụng</b><ul class="workflowList"><li>Bấm <b>So sánh mô hình</b>.</li><li>Chọn <b>Áp dụng gợi ý tốt nhất</b> hoặc áp dụng thủ công.</li><li>Chiến lược được ghi vào model đang có, không tạo file riêng.</li></ul></div>
-          <div class="workflowStep good"><b><span class="num">8</span>Xuất model</b><ul class="workflowList"><li>Quay lại Mục 8.</li><li>Bấm <b>Xuất model vận hành cho mục 10</b>.</li><li>File cần copy vào SCADA là model có chữ ký hợp lệ.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">8</span>Xuất model</b><ul class="workflowList"><li>Quay lại Mục 8.</li><li>Bấm <b>Xuất model vận hành cho 10A</b>.</li><li>File cần copy vào SCADA là model có chữ ký hợp lệ.</li></ul></div>
           <div class="workflowStep"><b><span class="num">0</span>Xuất cấu hình</b><ul class="workflowList"><li>Xuất cấu hình nếu muốn giữ ánh xạ cột, ngày lễ, ngưỡng cảnh báo.</li><li>Copy kèm model sang máy SCADA nếu cần.</li></ul></div>
         </div>
       </details>
@@ -159,9 +159,9 @@
           <div class="workflowStep"><b><span class="num">2-3</span>Ánh xạ và tách chỉ danh</b><ul class="workflowList"><li>Áp dụng cùng ánh xạ cột như luồng A, hoặc nạp config đã xuất.</li><li>Bấm tách chỉ danh nếu dữ liệu chưa có cột LV6.</li><li>Nếu phát sinh trạm/lộ mới chưa có trong model, nên huấn luyện bổ sung ở luồng A rồi xuất lại model.</li></ul></div>
           <div class="workflowStep warn"><b><span class="num">10</span>Nạp model vận hành</b><ul class="workflowList"><li>Chỉ chọn file xuất từ <b>Mục 8</b>.</li><li>Model dùng được cho <b>dữ liệu mới</b> nếu dữ liệu cùng cấu trúc và cùng nhóm chỉ danh đã học.</li><li>Không dùng model cho dữ liệu khác đơn vị đo, khác quy tắc chỉ danh, hoặc trạm/lộ chưa từng huấn luyện nếu chưa kiểm thử sai số.</li><li>App sẽ từ chối config, báo cáo hoặc JSON không có chữ ký.</li></ul></div>
           <div class="workflowStep good"><b><span class="num">10</span>Dự báo</b><ul class="workflowList"><li>Chọn trạm/lộ hoặc tất cả.</li><li>Bấm dự báo.</li><li>Xem model_used, strategy_method, dự báo và sai số/bù nếu có.</li></ul></div>
-          <div class="workflowStep good"><b><span class="num">10.1</span>LV8.5 - Dự báo đa cấp</b><ul class="workflowList"><li>Chọn kiểu dự báo: 15/30/60 phút, 24 giờ hoặc 7 ngày.</li><li>Chọn điểm bắt đầu: sau mốc cuối dữ liệu, ngày hiện tại, thời điểm hiện tại, hoặc ngày/giờ tự chọn.</li><li>Bấm <b>Dự báo theo kiểu LV8.5</b>, hoặc bấm thẳng <b>Tạo báo cáo đa cấp LV8.5</b>; nếu chưa có forecast, app sẽ tự dự báo trước.</li><li>Nếu cần dự báo tiếp, bấm <b>Cập nhật forecast vào dữ liệu RAM</b>, sau đó dự báo tiếp từ mốc vừa cập nhật.</li><li>Kiểm tra Pmax, giờ Pmax, sản lượng ngày, phụ tải theo ca và cảnh báo theo ngưỡng.</li><li>Xuất <span class="miniCode">forecast_summary_lv8_5.csv</span> để báo cáo vận hành.</li></ul></div>
-          <div class="workflowStep good"><b><span class="num">10.2</span>Đánh giá sai số</b><ul class="workflowList"><li>Sau khi có dữ liệu thực tế, nạp file thực tế và file dự báo đã xuất.</li><li>Bấm <b>Đánh giá từ 2 file đã chọn</b> để tính sai số từng mốc.</li><li>Xuất chi tiết/tổng hợp sai số nếu cần lưu hồ sơ.</li></ul></div>
-          <div class="workflowStep warn"><b><span class="num">10.3</span>Hiệu chỉnh model</b><ul class="workflowList"><li>Từ kết quả 10.2, bấm <b>Tạo bảng hiệu chỉnh</b>.</li><li>Bấm <b>Áp dụng hiệu chỉnh vào model</b> nếu muốn bù sai số cho lần dự báo sau.</li><li>Xuất <span class="miniCode">model_gbdt_lv8_5_calibrated.json</span> để dùng trong SCADA.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">10C</span>LV8.5 - Dự báo đa cấp</b><ul class="workflowList"><li>Chọn kiểu dự báo: 15/30/60 phút, 24 giờ hoặc 7 ngày.</li><li>Chọn điểm bắt đầu: sau mốc cuối dữ liệu, ngày hiện tại, thời điểm hiện tại, hoặc ngày/giờ tự chọn.</li><li>Bấm <b>Dự báo theo kiểu LV8.5</b>, hoặc bấm thẳng <b>Tạo báo cáo đa cấp LV8.5</b>; nếu chưa có forecast, app sẽ tự dự báo trước.</li><li>Nếu cần dự báo tiếp, bấm <b>Cập nhật forecast vào dữ liệu RAM</b>, sau đó dự báo tiếp từ mốc vừa cập nhật.</li><li>Kiểm tra Pmax, giờ Pmax, sản lượng ngày, phụ tải theo ca và cảnh báo theo ngưỡng.</li><li>Xuất <span class="miniCode">forecast_summary_lv8_5.csv</span> để báo cáo vận hành.</li></ul></div>
+          <div class="workflowStep good"><b><span class="num">10D</span>Đánh giá sai số</b><ul class="workflowList"><li>Sau khi có dữ liệu thực tế, nạp file thực tế và file dự báo đã xuất.</li><li>Bấm <b>Đánh giá từ 2 file đã chọn</b> để tính sai số từng mốc.</li><li>Xuất chi tiết/tổng hợp sai số nếu cần lưu hồ sơ.</li></ul></div>
+          <div class="workflowStep warn"><b><span class="num">10E</span>Hiệu chỉnh model</b><ul class="workflowList"><li>Từ kết quả 10D, bấm <b>Tạo bảng hiệu chỉnh</b>.</li><li>Bấm <b>Áp dụng hiệu chỉnh vào model</b> nếu muốn bù sai số cho lần dự báo sau.</li><li>Xuất <span class="miniCode">model_gbdt_lv8_5_calibrated.json</span> để dùng trong SCADA.</li></ul></div>
           <div class="workflowStep bad"><b><span class="num">11</span>Cảnh báo</b><ul class="workflowList"><li>Nạp hoặc nhập ngưỡng vận hành.</li><li>Kiểm tra cảnh báo quá tải.</li><li>Xuất forecast/cảnh báo nếu cần báo cáo.</li></ul></div>
         </div>
       </details>
@@ -180,9 +180,9 @@
               <tr><td>8</td><td>Huấn luyện GBDT và xuất model vận hành</td><td>Chỉ ở máy mạng ngoài hoặc khi cần tạo model mới</td><td>model_gbdt_lv8_operational.json</td></tr>
               <tr><td>9</td><td>So sánh mô hình và áp dụng chiến lược</td><td>Sau khi huấn luyện Mục 8, trước khi xuất model</td><td>strategyByStation được ghi vào model</td></tr>
               <tr><td>10</td><td>Nạp model vận hành và dự báo trong SCADA</td><td>Trong mạng SCADA hoặc khi test model đã xuất</td><td>forecast_lv8.csv</td></tr>
-              <tr><td>10.1</td><td>Dự báo đa cấp LV8.5</td><td>Có model Mục 10; có thể tự tạo forecast nếu chưa có</td><td>Pmax, giờ Pmax, sản lượng, ca vận hành, forecast_summary_lv8_5.csv</td></tr>
-              <tr><td>10.2</td><td>Đánh giá chất lượng dự báo</td><td>Sau khi có dữ liệu thực tế tương ứng với forecast</td><td>forecast_error_detail_lv8_5.csv, forecast_error_summary_lv8_5.csv</td></tr>
-              <tr><td>10.3</td><td>Hiệu chỉnh mô hình từ sai số</td><td>Sau khi đánh giá ở Mục 10.2 và muốn cải thiện dự báo sau</td><td>calibration_lv8_5.json, model_gbdt_lv8_5_calibrated.json</td></tr>
+              <tr><td>10C</td><td>Dự báo đa cấp LV8.5</td><td>Có model ở 10A; có thể tự tạo forecast nếu chưa có</td><td>Pmax, giờ Pmax, sản lượng, ca vận hành, forecast_summary_lv8_5.csv</td></tr>
+              <tr><td>10D</td><td>Đánh giá chất lượng dự báo</td><td>Sau khi có dữ liệu thực tế tương ứng với forecast</td><td>forecast_error_detail_lv8_5.csv, forecast_error_summary_lv8_5.csv</td></tr>
+              <tr><td>10E</td><td>Hiệu chỉnh mô hình từ sai số</td><td>Sau khi đánh giá ở 10D và muốn cải thiện dự báo sau</td><td>calibration_lv8_5.json, model_gbdt_lv8_5_calibrated.json</td></tr>
             </tbody>
           </table>
         </div>
@@ -190,7 +190,7 @@
 
       <div class="statusBox" style="margin-top:10px">
         <span class="pill warn">Lưu ý quan trọng</span>
-        <span class="note">Sau khi sửa dữ liệu ở Mục 4/5/6/7 phải bấm <b>Lưu thay đổi vào dữ liệu</b> trước khi huấn luyện. Sau khi so sánh ở Mục 9 phải bấm <b>Áp dụng</b>, rồi quay lại Mục 8 để <b>Xuất model vận hành cho mục 10</b>. Sau khi có kết quả đánh giá ở Mục 10.2, có thể dùng Mục 10.3 để tạo hiệu chỉnh và xuất model đã hiệu chỉnh.</span>
+        <span class="note">Sau khi sửa dữ liệu ở Mục 4/5/6/7 phải bấm <b>Lưu thay đổi vào dữ liệu</b> trước khi huấn luyện. Sau khi so sánh ở Mục 9 phải bấm <b>Áp dụng</b>, rồi quay lại Mục 8 để <b>Xuất model vận hành cho 10A</b>. Sau khi có kết quả đánh giá ở 10D, có thể dùng 10E để tạo hiệu chỉnh và xuất model đã hiệu chỉnh.</span>
       </div>
     </div>
 
@@ -406,7 +406,7 @@
       <div class="row" style="margin-top:12px">
         <button class="good" id="trainBtn">Huấn luyện GBDT cho trạm/lộ đang chọn</button>
         <button class="good" id="trainAllStationsBtn">Huấn luyện theo từng trạm/lộ</button>
-        <button class="warn" id="exportModelBtn" disabled>Xuất model vận hành cho mục 10</button>
+        <button class="warn" id="exportModelBtn" disabled>Xuất model vận hành cho 10A</button>
       </div>
       <details style="margin-top:12px" open>
         <summary>8A) Tham số huấn luyện GBDT và trọng số Hybrid mặc định</summary>
@@ -465,14 +465,21 @@
         <summary>Sai số theo từng giờ trong ngày</summary>
         <div id="lv7HourlyBox" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có báo cáo sai số theo giờ</td></tr></tbody></table></div>
       </details>
-      <p class="note"><b>Mục 9 không tạo file model độc lập, nhưng được phép áp dụng chiến lược.</b> Luồng đúng là: <b>So sánh mô hình</b> → <b>Áp dụng gợi ý tốt nhất</b> hoặc <b>Áp dụng chiến lược đang chọn</b> → quay lại <b>Mục 8 → Xuất model vận hành cho mục 10</b>. File ở Mục 10 vẫn phải là file model vận hành đã xuất, nhưng bên trong file đó sẽ có chiến lược đã áp dụng từ Mục 9.</p>
+      <p class="note"><b>Mục 9 không tạo file model độc lập, nhưng được phép áp dụng chiến lược.</b> Luồng đúng là: <b>So sánh mô hình</b> → <b>Áp dụng gợi ý tốt nhất</b> hoặc <b>Áp dụng chiến lược đang chọn</b> → quay lại <b>Mục 8 → Xuất model vận hành cho 10A</b>. File nạp ở 10A vẫn phải là file model vận hành đã xuất, nhưng bên trong file đó sẽ có chiến lược đã áp dụng từ Mục 9.</p>
     </div>
 
     <div class="card span12">
-      <h2>10) Dùng model trong SCADA offline</h2>
+      <h2>10A) Nạp model vận hành</h2>
       <label>Nạp model vận hành đã xuất từ Mục 8</label>
       <input id="modelFile" type="file" accept=".json" />
-      <div class="compactNote">LV7.6 sẽ từ chối file JSON thường, file cấu hình, báo cáo hoặc model cũ không có chữ ký <b>exportSource = MUC_8_EXPORT_MODEL</b>. Hãy dùng đúng file được tạo bằng nút <b>“Xuất model vận hành cho mục 10”</b> ở Mục 8.</div>
+      <div class="compactNote">LV7.6 sẽ từ chối file JSON thường, file cấu hình, báo cáo hoặc model cũ không có chữ ký <b>exportSource = MUC_8_EXPORT_MODEL</b>. Hãy dùng đúng file được tạo bằng nút <b>“Xuất model vận hành cho 10A”</b> ở Mục 8.</div>
+      <div id="modelInfo" style="margin-top:10px"></div>
+      <div id="modelImportGuard" class="statusBox" style="margin-top:10px"><span class="pill">Chưa nạp model vận hành</span></div>
+    </div>
+
+    <div class="card span12">
+      <h2>10B) B1 - Dự báo nhanh bằng model vận hành</h2>
+      <div class="compactNote"><b>Mục đích:</b> cấu hình số bước, nhiệt độ/mưa tương lai và chiến lược dự báo. Bấm <b>Dự báo trạm/lộ đang chọn</b> hoặc <b>Dự báo tất cả trạm/lộ</b>; kết quả sẽ hiển thị cả <b>biểu đồ</b> và <b>bảng forecast</b> ngay trong bước B1.</div>
       <div class="row" style="margin-top:10px">
         <div><label>Số bước dự báo</label><input id="forecastSteps" type="number" min="1" max="336" value="24"></div>
         <div><label>Nhiệt độ tương lai mặc định</label><input id="futureTemp" type="number" step="0.1" placeholder="Bỏ trống = lấy gần nhất"></div>
@@ -484,54 +491,78 @@
         <button class="secondary" id="forecastAllBtn" disabled>Dự báo tất cả trạm/lộ</button>
         <button class="secondary" id="exportForecastBtn" disabled>Xuất forecast.csv</button>
       </div>
-      <details style="margin-top:12px" open>
-        <summary>10.1) LV8.5 - Dự báo đa cấp cho điều độ</summary>
-        <div class="toolbar" style="margin-top:8px">
-          <div class="span3"><label>Kiểu dự báo nhanh</label><select id="lv8HorizonMode">
-            <option value="current_steps">Theo số bước đang nhập ở Mục 10</option>
-            <option value="next_15m">15 phút / ít nhất 1 chu kỳ</option>
-            <option value="next_30m">30 phút / ít nhất 1 chu kỳ</option>
-            <option value="next_60m">1 giờ tới</option>
-            <option value="next_day">24 giờ / 1 ngày</option>
-            <option value="next_2_days">48 giờ / 2 ngày</option>
-            <option value="next_7_days">7 ngày / 168 giờ</option>
-          </select></div>
-          <div class="span3"><label>Điểm bắt đầu dự báo LV8.5</label><select id="lv82StartMode">
-            <option value="after_latest">Sau mốc cuối dữ liệu từng chỉ danh</option>
-            <option value="today_00">Ngày hiện tại 00:00</option>
-            <option value="now_next">Mốc hiện tại / mốc kế tiếp theo chu kỳ</option>
-            <option value="custom_datetime">Ngày/giờ tự chọn</option>
-          </select></div>
-          <div class="span3"><label>Ngày/giờ tự chọn</label><input id="lv82StartDateTime" type="datetime-local"></div>
-          <div class="span3"><label>Khi cập nhật forecast vào dữ liệu</label><select id="lv82AppendMode">
-            <option value="overwrite">Ghi đè nếu trùng thời gian + chỉ danh</option>
-            <option value="skip_existing">Bỏ qua dòng đã có</option>
-            <option value="append_duplicate">Vẫn thêm dòng mới</option>
-          </select></div>
-          <div class="span3"><label>Ca vận hành</label><select id="lv8ShiftMode">
-            <option value="standard">Đêm 00-06 / Sáng 06-12 / Chiều 12-18 / Tối 18-24</option>
-            <option value="dispatch_3shift">Ca 1 06-14 / Ca 2 14-22 / Ca 3 22-06</option>
-          </select></div>
-          <div class="span6"><label>Thao tác LV8.5</label><div class="row">
-            <button class="good" id="lv8QuickForecastBtn" disabled>Dự báo theo kiểu LV8.5 đang chọn</button>
-            <button class="secondary" id="lv8SummaryBtn" disabled>Tạo báo cáo đa cấp LV8.5</button>
-            <button class="secondary" id="lv82AppendForecastBtn" disabled>Cập nhật forecast vào dữ liệu RAM</button>
-            <button class="secondary" id="lv8ExportSummaryBtn" disabled>Xuất forecast_summary_lv8_5.csv</button>
-          </div></div>
-        </div>
-        <div class="compactNote"><b>Ý nghĩa mốc dự báo LV8.5:</b> phần <b>Kiểu dự báo</b> xác định độ dài khoảng dự báo; phần <b>Điểm bắt đầu</b> xác định dự báo bắt đầu từ đâu. Có thể dự báo cho <b>ngày hiện tại</b> hoặc ngày/giờ tự chọn, không bắt buộc phải là mốc tiếp theo của dữ liệu mẫu. Nếu dữ liệu có chu kỳ 60 phút thì lựa chọn 15/30 phút vẫn tạo ít nhất 1 bước theo chu kỳ 60 phút.</div>
-        <div class="compactNote">Nút <b>Cập nhật forecast vào dữ liệu RAM</b> sẽ chèn các mốc đã dự báo vào bảng dữ liệu đang mở, đánh dấu <span class="miniCode">du_lieu_du_bao=1</span> và <span class="miniCode">bo_khoi_huan_luyen=1</span>. Các mốc này dùng để <b>dự báo tiếp</b>, nhưng không đưa vào huấn luyện model thật.</div>
-        <div class="compactNote"><b>Thông báo thời gian LV8.5:</b> khi bấm dự báo, tạo báo cáo đa cấp hoặc cập nhật forecast vào RAM, app sẽ hiển thị trạng thái <b>đang thực hiện</b>, thời điểm bắt đầu/kết thúc, thời gian xử lý và số dòng đã xử lý ngay bên dưới khu thao tác.</div>
-        <div class="compactNote">LV8.5 dùng chính model vận hành ở Mục 10. Model có thể dùng cho dữ liệu mới nếu dữ liệu cùng cấu trúc, cùng đơn vị MW, cùng quy tắc chỉ danh và thuộc phạm vi chỉ danh đã huấn luyện. Nút <b>Tạo báo cáo đa cấp LV8.5</b> sẽ tự chạy dự báo trước nếu chưa có kết quả forecast.</div>
-        <div id="lv8HorizonExplainBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa chọn / chưa tính mốc dự báo LV8.5</span></div>
-        <div id="lv8SummaryBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có báo cáo đa cấp LV8.5</span></div>
-        <div id="lv83ActionStatus" class="statusBox" style="margin-top:10px"><span class="pill">Trạng thái thao tác LV8.5</span><span class="pill">Chưa chạy tạo báo cáo/cập nhật RAM</span></div>
-        <div id="lv8SummaryTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có dữ liệu tổng hợp LV8.5</td></tr></tbody></table></div>
-      </details>
+      <div id="forecastExplainBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có giải thích dự báo</span></div>
+    </div>
 
-      <details style="margin-top:12px" open>
-        <summary>10.2) LV8.5 - Đánh giá chất lượng dự báo theo dữ liệu thực tế</summary>
-        <div class="compactNote"><b>Mục đích:</b> nạp <b>2 file</b> gồm dữ liệu thực tế và dữ liệu dự báo, ghép theo <b>thời gian + chỉ danh/trạm/lộ</b>, sau đó tính sai số từng mốc. Có thể dùng file forecast đã xuất từ Mục 10/10.1 hoặc dùng forecast đang có trong RAM.</div>
+    <div class="card span12">
+      <h2>10C1) B2 - Chạy dự báo / tạo báo cáo đa cấp LV8.5</h2>
+      <div class="compactNote"><b>Mục đích:</b> đây là khung thao tác chính của <b>Luồng B2</b>. Trong LV9.8.1, B2 cũng hiển thị cả khung 10B ở phía trên để dùng các nút <b>Dự báo trạm/lộ đang chọn</b> và <b>Dự báo tất cả trạm/lộ</b>. Tại khung này, chọn kiểu dự báo, điểm bắt đầu, ca vận hành rồi bấm <b>B2 - Dự báo LV8.5</b> hoặc <b>B2 - Tạo báo cáo đa cấp</b>. Nút tạo báo cáo sẽ tự chạy dự báo trước nếu chưa có forecast.</div>
+      <div class="toolbar" style="margin-top:8px">
+        <div class="span3"><label>Kiểu dự báo nhanh</label><select id="lv8HorizonMode">
+          <option value="current_steps">Theo số bước đang nhập ở 10B</option>
+          <option value="next_15m">15 phút / ít nhất 1 chu kỳ</option>
+          <option value="next_30m">30 phút / ít nhất 1 chu kỳ</option>
+          <option value="next_60m">1 giờ tới</option>
+          <option value="next_day">24 giờ / 1 ngày</option>
+          <option value="next_2_days">48 giờ / 2 ngày</option>
+          <option value="next_7_days">7 ngày / 168 giờ</option>
+        </select></div>
+        <div class="span3"><label>Điểm bắt đầu dự báo LV8.5</label><select id="lv82StartMode">
+          <option value="after_latest">Sau mốc cuối dữ liệu từng chỉ danh</option>
+          <option value="today_00">Ngày hiện tại 00:00</option>
+          <option value="now_next">Mốc hiện tại / mốc kế tiếp theo chu kỳ</option>
+          <option value="custom_datetime">Ngày/giờ tự chọn</option>
+        </select></div>
+        <div class="span3"><label>Ngày/giờ tự chọn</label><input id="lv82StartDateTime" type="datetime-local"></div>
+        <div class="span3"><label>Ca vận hành</label><select id="lv8ShiftMode">
+          <option value="standard">Đêm 00-06 / Sáng 06-12 / Chiều 12-18 / Tối 18-24</option>
+          <option value="dispatch_3shift">Ca 1 06-14 / Ca 2 14-22 / Ca 3 22-06</option>
+        </select></div>
+        <div class="span6"><label>Thao tác B2</label><div class="row">
+          <button class="good" id="lv8QuickForecastBtn" disabled>B2 - Dự báo LV8.5 theo kiểu đang chọn</button>
+          <button class="secondary" id="lv8SummaryBtn" disabled>B2 - Tạo báo cáo đa cấp LV8.5</button>
+        </div></div>
+      </div>
+      <div class="compactNote"><b>Ý nghĩa mốc dự báo:</b> phần <b>Kiểu dự báo</b> xác định độ dài khoảng dự báo; phần <b>Điểm bắt đầu</b> xác định dự báo bắt đầu từ đâu. Có thể dự báo cho ngày hiện tại hoặc ngày/giờ tự chọn, không bắt buộc phải là mốc tiếp theo của dữ liệu mẫu.</div>
+      <div id="lv8HorizonExplainBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa chọn / chưa tính mốc dự báo LV8.5</span></div>
+      <div id="lv83ActionStatus" class="statusBox" style="margin-top:10px"><span class="pill">Trạng thái thao tác LV8.5</span><span class="pill">Chưa chạy tạo báo cáo/cập nhật RAM</span></div>
+    </div>
+
+    <div class="card span12">
+      <h2>10C2) B3 - Xem kết quả báo cáo đa cấp và cảnh báo</h2>
+      <div class="compactNote"><b>Mục đích:</b> đây là bước <b>xem kết quả sau khi B2 đã chạy</b>: Pmax, giờ Pmax, sản lượng MWh, phụ tải theo ca, số cảnh báo/nguy hiểm. Nếu cần sửa ngưỡng, mở thêm khung <b>10G</b> trong bước B3.</div>
+      <div id="lv8SummaryBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có báo cáo đa cấp LV8.5</span></div>
+      <div id="lv8SummaryTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có dữ liệu tổng hợp LV8.5</td></tr></tbody></table></div>
+    </div>
+
+    <div class="card span12">
+      <h2>10C3) B4 - Cập nhật forecast vào RAM và dự báo nối tiếp</h2>
+      <div class="compactNote"><b>Mục đích:</b> chèn các mốc đã dự báo vào dữ liệu RAM để có thể dự báo nối tiếp chu kỳ sau. Các dòng forecast được đánh dấu <span class="miniCode">du_lieu_du_bao=1</span> và <span class="miniCode">bo_khoi_huan_luyen=1</span>, chỉ dùng làm nền dự báo tiếp, không dùng huấn luyện model thật.</div>
+      <div class="toolbar" style="margin-top:8px">
+        <div class="span4"><label>Khi cập nhật forecast vào dữ liệu</label><select id="lv82AppendMode">
+          <option value="overwrite">Ghi đè nếu trùng thời gian + chỉ danh</option>
+          <option value="skip_existing">Bỏ qua dòng đã có</option>
+          <option value="append_duplicate">Vẫn thêm dòng mới</option>
+        </select></div>
+        <div class="span8"><label>Thao tác B4</label><div class="row">
+          <button class="secondary" id="lv82AppendForecastBtn" disabled>B4 - Cập nhật forecast vào dữ liệu RAM</button>
+        </div></div>
+      </div>
+      <div class="compactNote"><b>Sau khi cập nhật RAM:</b> quay lại <b>B2</b> để bấm <b>Dự báo LV8.5</b> hoặc <b>Tạo báo cáo đa cấp LV8.5</b> cho chu kỳ tiếp theo. Nếu thấy dữ liệu dự báo mới chưa hiện trong bảng, kiểm tra lại Mục 4/Bảng dữ liệu hoặc xuất forecast để đối chiếu.</div>
+    </div>
+
+    <div class="card span12">
+      <h2>10C4) B5 - Xuất forecast và báo cáo summary</h2>
+      <div class="compactNote"><b>Mục đích:</b> bước cuối của Luồng B để xuất file phục vụ báo cáo vận hành hoặc làm đầu vào cho Luồng C đánh giá sai số sau khi có dữ liệu thực tế.</div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="lv8ExportSummaryBtn" disabled>B5 - Xuất forecast_summary_lv8_5.csv</button>
+      </div>
+      <div class="compactNote">File <span class="miniCode">forecast_summary_lv8_5.csv</span> dùng để xem Pmax, giờ Pmax, MWh và tổng hợp theo ca. File forecast chi tiết có thể xuất ở <b>10B</b> bằng nút <b>Xuất forecast.csv</b>.</div>
+    </div>
+
+    <div class="card span12">
+      <h2>10D) Đánh giá sai số từ dữ liệu thực tế</h2>
+        <div class="compactNote"><b>Mục đích:</b> nạp <b>2 file</b> gồm dữ liệu thực tế và dữ liệu dự báo, ghép theo <b>thời gian + chỉ danh/trạm/lộ</b>, sau đó tính sai số từng mốc. Có thể dùng file forecast đã xuất từ 10B/10C hoặc dùng forecast đang có trong RAM.</div>
         <div class="toolbar" style="margin-top:8px">
           <div class="span4"><label>File dữ liệu thực tế sau vận hành</label><input id="lv84ActualFile" type="file" accept=".csv,.txt,.tsv,.json,.xlsx,.xlsm,.xlsb,.xls"></div>
           <div class="span4"><label>File dữ liệu dự báo đã xuất</label><input id="lv84ForecastFile" type="file" accept=".csv,.txt,.tsv,.json,.xlsx,.xlsm,.xlsb,.xls"></div>
@@ -551,12 +582,12 @@
         <div id="lv84EvalSummaryBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có tổng hợp sai số</span></div>
         <div id="lv84EvalTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có chi tiết sai số từng thời điểm.</td></tr></tbody></table></div>
         <details style="margin-top:8px"><summary>Lịch sử đánh giá đã lưu trong trình duyệt</summary><div id="lv84HistoryBox" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có lịch sử đánh giá.</td></tr></tbody></table></div></details>
-      </details>
+      
+    </div>
 
-
-      <details style="margin-top:12px" open>
-        <summary>10.3) LV8.5 - Hiệu chỉnh mô hình từ kết quả đánh giá</summary>
-        <div class="compactNote"><b>Mục đích:</b> dùng kết quả sai số ở Mục 10.2 để tạo bảng bù sai số theo <b>toàn hệ thống / từng chỉ danh / từng giờ</b>. Hiệu chỉnh này dùng cho model vận hành hiện tại, không dùng dữ liệu dự báo để huấn luyện thật.</div>
+    <div class="card span12">
+      <h2>10E) Hiệu chỉnh mô hình từ sai số</h2>
+        <div class="compactNote"><b>Mục đích:</b> dùng kết quả sai số ở 10D để tạo bảng bù sai số theo <b>toàn hệ thống / từng chỉ danh / từng giờ</b>. Hiệu chỉnh này dùng cho model vận hành hiện tại, không dùng dữ liệu dự báo để huấn luyện thật.</div>
         <div class="toolbar" style="margin-top:8px">
           <div class="span3"><label>Phạm vi hiệu chỉnh khi dự báo</label><select id="lv85ApplyScope">
             <option value="station_hour_station_hour_total">Ưu tiên chỉ danh+giờ → chỉ danh → giờ → toàn bộ</option>
@@ -585,14 +616,15 @@
             <button class="danger" id="lv85ClearCalibrationBtn">Tắt hiệu chỉnh đang áp dụng</button>
           </div></div>
         </div>
-        <div class="compactNote"><b>Nguyên tắc:</b> BIAS ở Mục 10.2 được tính theo chiều <span class="miniCode">forecast - actual</span>. Vì vậy hiệu chỉnh sẽ bù ngược lại: nếu model thường dự báo thấp hơn thực tế, app sẽ cộng thêm; nếu dự báo cao hơn thực tế, app sẽ trừ bớt. Các nhóm có ít mẫu hơn ngưỡng tối thiểu sẽ không được dùng trực tiếp mà lùi về nhóm rộng hơn.</div>
+        <div class="compactNote"><b>Nguyên tắc:</b> BIAS ở 10D được tính theo chiều <span class="miniCode">forecast - actual</span>. Vì vậy hiệu chỉnh sẽ bù ngược lại: nếu model thường dự báo thấp hơn thực tế, app sẽ cộng thêm; nếu dự báo cao hơn thực tế, app sẽ trừ bớt. Các nhóm có ít mẫu hơn ngưỡng tối thiểu sẽ không được dùng trực tiếp mà lùi về nhóm rộng hơn.</div>
         <div id="lv85CalibrationStatus" class="statusBox" style="margin-top:10px"><span class="pill">Trạng thái hiệu chỉnh LV8.5</span><span class="pill">Chưa tạo hiệu chỉnh</span></div>
         <div id="lv85CalibrationSummaryBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có bảng hiệu chỉnh</span></div>
         <div id="lv85CalibrationTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có dữ liệu hiệu chỉnh.</td></tr></tbody></table></div>
-      </details>
+      
+    </div>
 
-      <details style="margin-top:12px" open>
-        <summary>10.4) LV8.9 - So sánh dự báo trước/sau hiệu chỉnh</summary>
+    <div class="card span12">
+      <h2>10F) So sánh trước/sau hiệu chỉnh</h2>
         <div class="compactNote">Dùng khi forecast có cột <span class="miniCode">forecast_before_calibration_mw</span> và đã có dữ liệu thực tế trong RAM. Chức năng này giúp kiểm tra hiệu chỉnh LV8.5 có làm sai số tốt hơn hay xấu đi.</div>
         <div class="row" style="margin-top:8px">
           <button class="secondary" id="lv89CompareCalibrationBtn">So sánh trước/sau hiệu chỉnh</button>
@@ -600,12 +632,11 @@
         </div>
         <div id="lv89CompareStatus" class="statusBox" style="margin-top:10px"><span class="pill">Chưa so sánh trước/sau hiệu chỉnh</span></div>
         <div id="lv89CompareTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có dữ liệu so sánh.</td></tr></tbody></table></div>
-      </details>
+      
+    </div>
 
-      <div id="modelInfo" style="margin-top:10px"></div>
-      <div id="modelImportGuard" class="statusBox" style="margin-top:10px"><span class="pill">Chưa nạp model vận hành</span></div>
-      <details style="margin-top:12px" open>
-        <summary>Ngưỡng cảnh báo vận hành</summary>
+    <div class="card span12">
+      <h2>10G) Ngưỡng cảnh báo vận hành</h2>
         <label>Danh sách ngưỡng: mỗi dòng = Trạm/Lộ, Cảnh báo MW, Nguy hiểm MW</label>
         <textarea id="thresholdText" rows="4" placeholder="E22.1,38,42
 471,9,11
@@ -615,8 +646,7 @@ __ALL__,80,90"></textarea>
           <button class="secondary" id="exportThresholdBtn">Xuất thresholds.csv</button>
         </div>
         <div id="thresholdAlerts" class="statusBox" style="margin-top:8px"><span class="pill">Chưa có cảnh báo</span></div>
-      </details>
-      <div id="forecastExplainBox" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có giải thích dự báo</span></div>
+      
     </div>
 
     <div class="card span12">

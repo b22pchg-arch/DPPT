@@ -1944,16 +1944,66 @@ function forecastAllStations() {
   if (!state.model) throw new Error('Chưa có model.');
   const stations = state.model.modelsByStation ? Object.keys(state.model.modelsByStation) : [...new Set(state.rows.map(r=>r.station||'ALL'))];
   let all=[];
+  const perStation = [];
   for (const st of stations) {
-    try { all = all.concat(forecastForStation(st).forecast); }
+    try {
+      const out = forecastForStation(st);
+      all = all.concat(out.forecast);
+      perStation.push(out);
+    }
     catch(e) { log('Bỏ qua ' + st + ': ' + e.message); }
   }
   state.forecastRows = all;
   applyThresholdsToForecast(state.forecastRows);
-  renderTable(all, ['step','time','station','forecast_p_mw','temp','rain','holiday','gbdt','similar_day','same_hour_last_week','trend','bias','calibration_lv85','calibration_mw','calibration_source','forecast_before_calibration_mw','nguong_canh_bao','trang_thai_nguong'], 2000);
+  const cols = ['step','time','station','forecast_p_mw','temp','rain','holiday','gbdt','similar_day','same_hour_last_week','trend','bias','calibration_lv85','calibration_mw','calibration_source','forecast_before_calibration_mw','nguong_canh_bao','trang_thai_nguong'];
+  renderTable(all, cols, 5000);
   updateForecastMetrics(all);
+  drawForecastAllSummaryChart(all);
+  renderForecastAllExplain(all, perStation);
   $('exportForecastBtn').disabled = false;
-  log(`Đã dự báo tất cả trạm/lộ: ${all.length} dòng.`);
+  log(`Đã dự báo tất cả trạm/lộ: ${all.length} dòng, ${perStation.length} trạm/lộ có kết quả.`);
+}
+
+function drawForecastAllSummaryChart(rows) {
+  if (!rows || !rows.length) { drawSeries([], [], [], 'Tổng dự báo', ''); return; }
+  const byTime = new Map();
+  for (const r of rows) {
+    const key = String(r.time || '');
+    const p = parseNumber(r.forecast_p_mw);
+    if (!key || !Number.isFinite(p)) continue;
+    byTime.set(key, (byTime.get(key) || 0) + p);
+  }
+  const sorted = Array.from(byTime.entries()).sort((a,b) => String(a[0]).localeCompare(String(b[0])));
+  const times = sorted.map(x => parseTime(x[0]) || x[0]);
+  const total = sorted.map(x => x[1]);
+  drawSeries(times, [], total, 'Tất cả trạm/lộ', 'Tổng P dự báo');
+}
+
+function renderForecastAllExplain(rows, perStation=[]) {
+  const box = $('forecastExplainBox');
+  if (!box) return;
+  if (!rows || !rows.length) {
+    box.innerHTML = '<span class="pill warn">Không có dòng dự báo nào được tạo</span>';
+    return;
+  }
+  const stationCount = new Set(rows.map(r => r.station || '')).size;
+  const pVals = rows.map(r => parseNumber(r.forecast_p_mw)).filter(Number.isFinite);
+  const max = pVals.length ? Math.max(...pVals) : NaN;
+  const maxRow = Number.isFinite(max) ? rows.find(r => parseNumber(r.forecast_p_mw) === max) : null;
+  const totalByStep = new Map();
+  for (const r of rows) {
+    const step = String(r.step || '');
+    const p = parseNumber(r.forecast_p_mw);
+    if (!step || !Number.isFinite(p)) continue;
+    totalByStep.set(step, (totalByStep.get(step) || 0) + p);
+  }
+  const maxTotalEntry = Array.from(totalByStep.entries()).sort((a,b)=>b[1]-a[1])[0];
+  box.innerHTML = `<b>Kết quả dự báo tất cả trạm/lộ:</b>` +
+    `<span class="pill ok">${rows.length} dòng forecast</span>` +
+    `<span class="pill">${stationCount} trạm/lộ</span>` +
+    (maxRow ? `<span class="pill">Pmax từng dòng ${formatNum(max,3)} MW tại ${escapeHtml(maxRow.time)} - ${escapeHtml(maxRow.station)}</span>` : '') +
+    (maxTotalEntry ? `<span class="pill modeBadge">Tổng P lớn nhất bước ${escapeHtml(maxTotalEntry[0])}: ${formatNum(maxTotalEntry[1],3)} MW</span>` : '') +
+    `<span class="pill">Bảng kết quả đang hiển thị ở khung Bảng dữ liệu bên dưới</span>`;
 }
 
 function renderForecastExplain(out) {
