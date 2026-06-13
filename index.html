@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="LoadForecast" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>SCADA Load Forecast Offline PWA LV9.8.1</title>
+  <title>SCADA Load Forecast Offline PWA LV9.11</title>
   <style>
     :root{
       --bg:#0b1220;--panel:#111c2f;--panel2:#16243b;--text:#e5edf7;--muted:#9fb0c6;
@@ -70,8 +70,8 @@
 </head>
 <body>
 <header>
-  <h1>SCADA Load Forecast Offline PWA LV9.8.1</h1>
-  <div class="sub">LV9.8.1: giao diện <b>Workflow / Workbench</b> theo 4 luồng A/S/B/C. Khung chức năng của bước đang thao tác được đưa lên ngay trong vùng làm việc, tránh phải thao tác ở phía dưới; vẫn giữ <b>Chế độ chuyên gia</b> để xem toàn bộ mục dọc. Dashboard và nhật ký chỉ quan sát, không khóa nút và không can thiệp lõi xử lý ổn định của LV8.6/LV8.9. Không CDN, không server ngoài, không pwa.js.</div>
+  <h1>SCADA Load Forecast Offline PWA LV9.11</h1>
+  <div class="sub">LV9.9: giao diện <b>Workflow / Workbench</b> theo 4 luồng A/S/B/C. Khung chức năng của bước đang thao tác được đưa lên ngay trong vùng làm việc, tránh phải thao tác ở phía dưới; vẫn giữ <b>Chế độ chuyên gia</b> để xem toàn bộ mục dọc. Dashboard và nhật ký chỉ quan sát, không khóa nút và không can thiệp lõi xử lý ổn định của LV8.6/LV8.9. Không CDN, không server ngoài, không pwa.js.</div>
 </header>
 <main>
   <section class="grid">
@@ -82,8 +82,8 @@
         <div class="span3"><label>Chế độ</label><select id="appMode"><option value="external">Mạng ngoài: hiệu chỉnh + huấn luyện</option><option value="scada">SCADA: dự báo nhanh + cảnh báo</option></select></div>
         <div class="span3"><label>Tên cấu hình</label><input id="configName" value="SCADA_LOAD_FORECAST_LV9_3"></div>
         <div class="span3"><label>Mốc dữ liệu mong muốn</label><select id="expectedInterval"><option value="auto">Tự nhận dạng</option><option value="5">5 phút</option><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">60 phút</option></select></div>
-        <div class="span3"><label>Trạng thái bản</label><div id="versionInfo"><span class="pill modeBadge">LV9.8.1</span></div></div>
-        <div class="span12"><div class="compactNote"><b>LV9.8.1 Workbench:</b> đưa trực tiếp khung thao tác của bước hiện tại vào vùng làm việc bên phải, không còn phải kéo xuống dưới để thao tác. Chế độ này chỉ di chuyển/ẩn hiện khung chức năng, không khóa nút và không thay đổi lõi dự báo/huấn luyện/hiệu chỉnh.</div></div>
+        <div class="span3"><label>Trạng thái bản</label><div id="versionInfo"><span class="pill modeBadge">LV9.9</span></div></div>
+        <div class="span12"><div class="compactNote"><b>LV9.9 Workbench:</b> đưa trực tiếp khung thao tác của bước hiện tại vào vùng làm việc bên phải, không còn phải kéo xuống dưới để thao tác. Chế độ này chỉ di chuyển/ẩn hiện khung chức năng, không khóa nút và không thay đổi lõi dự báo/huấn luyện/hiệu chỉnh.</div></div>
       </div>
       <div class="row" style="margin-top:10px">
         <button class="secondary" id="saveFullConfigBtn">Lưu cấu hình offline</button>
@@ -130,7 +130,7 @@
     <div class="card span12">
       <h2>0.1) Hướng dẫn luồng công việc cho người vận hành</h2>
       <div class="statusBox okBox">
-        <b>Nguyên tắc chung:</b> làm từ trên xuống dưới theo số mục. Có thể bấm <b>Thu gọn/Mở</b> tại tiêu đề từng khu vực để nhường không gian cho bảng Mục 4 hoặc chức năng đang thao tác. Từ LV8.9, mặc định dùng bố cục rộng toàn màn hình; có thể đổi sang <b>Rộng / Siêu rộng / Cố định 1480px</b> tại Mục 0.2. Dashboard LV8.9 và Nhật ký thao tác ở Mục 0.3/0.4 chỉ để theo dõi, không khóa nút. Bản này có các luồng: <b>Mạng ngoài</b> dùng để chuẩn hóa dữ liệu, huấn luyện và xuất model; <b>SCADA</b> dùng dữ liệu mới cùng cấu trúc/chỉ danh để nạp model đã xuất, dự báo và cảnh báo. Không nạp model ở 10A trước khi đã có file model vận hành xuất từ Mục 8. Từ LV9.8.1, B1 hiển thị đúng 10B; B2 hiển thị đồng thời 10B và 10C1 để không mất các nút dự báo nhanh khi chạy dự báo đa cấp.
+        <b>Nguyên tắc chung:</b> làm từ trên xuống dưới theo số mục. Có thể bấm <b>Thu gọn/Mở</b> tại tiêu đề từng khu vực để nhường không gian cho bảng Mục 4 hoặc chức năng đang thao tác. Từ LV8.9, mặc định dùng bố cục rộng toàn màn hình; có thể đổi sang <b>Rộng / Siêu rộng / Cố định 1480px</b> tại Mục 0.2. Dashboard LV8.9 và Nhật ký thao tác ở Mục 0.3/0.4 chỉ để theo dõi, không khóa nút. Bản này có các luồng: <b>Mạng ngoài</b> dùng để chuẩn hóa dữ liệu, huấn luyện và xuất model; <b>SCADA</b> dùng dữ liệu mới cùng cấu trúc/chỉ danh để nạp model đã xuất, dự báo và cảnh báo. Không nạp model ở 10A trước khi đã có file model vận hành xuất từ Mục 8. Từ LV9.11, B1 hiển thị đúng 10B; B2 hiển thị đồng thời 10B và 10C1; thêm 10H để xuất và mở/xem lại báo cáo HTML offline ngay trong chương trình.
       </div>
 
       <details open style="margin-top:10px">
@@ -496,7 +496,7 @@
 
     <div class="card span12">
       <h2>10C1) B2 - Chạy dự báo / tạo báo cáo đa cấp LV8.5</h2>
-      <div class="compactNote"><b>Mục đích:</b> đây là khung thao tác chính của <b>Luồng B2</b>. Trong LV9.8.1, B2 cũng hiển thị cả khung 10B ở phía trên để dùng các nút <b>Dự báo trạm/lộ đang chọn</b> và <b>Dự báo tất cả trạm/lộ</b>. Tại khung này, chọn kiểu dự báo, điểm bắt đầu, ca vận hành rồi bấm <b>B2 - Dự báo LV8.5</b> hoặc <b>B2 - Tạo báo cáo đa cấp</b>. Nút tạo báo cáo sẽ tự chạy dự báo trước nếu chưa có forecast.</div>
+      <div class="compactNote"><b>Mục đích:</b> đây là khung thao tác chính của <b>Luồng B2</b>. Trong LV9.9, B2 cũng hiển thị cả khung 10B ở phía trên để dùng các nút <b>Dự báo trạm/lộ đang chọn</b> và <b>Dự báo tất cả trạm/lộ</b>. Tại khung này, chọn kiểu dự báo, điểm bắt đầu, ca vận hành rồi bấm <b>B2 - Dự báo LV8.5</b> hoặc <b>B2 - Tạo báo cáo đa cấp</b>. Nút tạo báo cáo sẽ tự chạy dự báo trước nếu chưa có forecast.</div>
       <div class="toolbar" style="margin-top:8px">
         <div class="span3"><label>Kiểu dự báo nhanh</label><select id="lv8HorizonMode">
           <option value="current_steps">Theo số bước đang nhập ở 10B</option>
@@ -559,6 +559,94 @@
       </div>
       <div class="compactNote">File <span class="miniCode">forecast_summary_lv8_5.csv</span> dùng để xem Pmax, giờ Pmax, MWh và tổng hợp theo ca. File forecast chi tiết có thể xuất ở <b>10B</b> bằng nút <b>Xuất forecast.csv</b>.</div>
     </div>
+
+
+
+    <div class="card span12">
+      <h2>10H) LV9.11 - Xuất và mở báo cáo HTML offline</h2>
+      <div class="compactNote"><b>Mục đích:</b> xuất kết quả dự báo, báo cáo đa cấp, đánh giá sai số, hiệu chỉnh model và nhật ký thao tác thành <b>file HTML độc lập</b>; đồng thời cho phép <b>mở/xem lại file HTML đã xuất trực tiếp trong chương trình</b> mà không cần rời khỏi PWA.</div>
+      <div class="toolbar" style="margin-top:8px">
+        <div class="span12"><label>Xuất báo cáo HTML theo nội dung đang có trong RAM</label><div class="row">
+          <button class="secondary" id="lv99ExportForecastHtmlBtn">LV9.11 - Xuất forecast_report.html</button>
+          <button class="secondary" id="lv99ExportSummaryHtmlBtn">LV9.11 - Xuất summary_report.html</button>
+          <button class="secondary" id="lv99ExportEvaluationHtmlBtn">LV9.11 - Xuất evaluation_report.html</button>
+          <button class="secondary" id="lv99ExportCalibrationHtmlBtn">LV9.11 - Xuất calibration_report.html</button>
+          <button class="good" id="lv99ExportAllHtmlBtn">LV9.11 - Xuất báo cáo tổng hợp HTML</button>
+        </div></div>
+        <div class="span5"><label>Chọn file báo cáo HTML đã xuất để xem lại</label><input id="lv910HtmlFileInput" type="file" accept=".html,.htm,text/html"></div>
+        <div class="span7"><label>Mở / xem báo cáo HTML trong chương trình</label><div class="row">
+          <button class="secondary" id="lv910OpenHtmlFileBtn">LV9.11 - Mở HTML đã chọn</button>
+          <button class="secondary" id="lv910OpenLastHtmlBtn">LV9.11 - Xem báo cáo vừa xuất</button>
+          <button class="secondary" id="lv910OpenHtmlNewTabBtn" disabled>Mở báo cáo đang xem trong tab mới</button>
+          <button class="secondary" id="lv910PrintHtmlPreviewBtn" disabled>In / Lưu PDF báo cáo đang xem</button>
+          <button class="danger" id="lv910CloseHtmlPreviewBtn" disabled>Đóng khung xem HTML</button>
+        </div></div>
+      </div>
+      <div class="compactNote"><b>Gợi ý:</b> trong Luồng B5 dùng nút <b>summary_report</b> hoặc <b>báo cáo tổng hợp HTML</b>. Trong Luồng C6 dùng nút <b>evaluation_report</b>, <b>calibration_report</b> hoặc <b>báo cáo tổng hợp HTML</b>. Sau khi xuất, có thể bấm <b>Xem báo cáo vừa xuất</b>; hoặc chọn lại file .html đã lưu rồi bấm <b>Mở HTML đã chọn</b>.</div>
+      <div id="lv99HtmlReportStatus" class="statusBox" style="margin-top:10px"><span class="pill">LV9.11 chưa xuất/mở báo cáo HTML</span></div>
+      <div id="lv910HtmlViewerStatus" class="statusBox" style="margin-top:10px"><span class="pill">Chưa mở báo cáo HTML trong chương trình</span></div>
+      <div id="lv910HtmlViewerWrap" style="display:none;margin-top:10px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#0b1220">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:rgba(15,23,42,.92)">
+          <b id="lv910HtmlViewerTitle">Báo cáo HTML</b>
+          <span class="pill">Khung xem nội bộ LV9.11</span>
+        </div>
+        <iframe id="lv910HtmlViewer" title="Xem báo cáo HTML đã xuất" sandbox="allow-same-origin allow-modals allow-popups allow-forms" style="width:100%;height:70vh;border:0;background:white"></iframe>
+      </div>
+    </div>
+
+    <div class="card span12">
+      <h2>10I) LV9.11 - Sao lưu và phục hồi phiên làm việc</h2>
+      <div class="compactNote"><b>Mục đích:</b> lưu toàn bộ phiên đang làm việc để mở lại sau: dữ liệu RAM, ánh xạ cột, model đang nạp, forecast, kết quả đánh giá sai số, hiệu chỉnh model và nhật ký/trạng thái liên quan. File phiên là <span class="miniCode">session_lv9_11.json</span>, dùng offline.</div>
+      <div class="toolbar" style="margin-top:8px">
+        <div class="span5"><label>Chọn file session_lv9_11.json để phục hồi</label><input id="lv911SessionFile" type="file" accept=".json,application/json"></div>
+        <div class="span7"><label>Thao tác phiên làm việc</label><div class="row">
+          <button class="secondary" id="lv911ExportSessionBtn">LV9.11 - Xuất session ra file JSON</button>
+          <button class="secondary" id="lv911ImportSessionBtn">LV9.11 - Phục hồi session đã chọn</button>
+          <button class="secondary" id="lv911SaveBrowserSessionBtn">Lưu nhanh session vào trình duyệt</button>
+          <button class="secondary" id="lv911LoadBrowserSessionBtn">Nạp lại session đã lưu nhanh</button>
+          <button class="danger" id="lv911ClearBrowserSessionBtn">Xóa session lưu nhanh</button>
+        </div></div>
+      </div>
+      <div class="compactNote"><b>Lưu ý:</b> nếu dữ liệu rất lớn, nên dùng nút <b>Xuất session ra file JSON</b>. Lưu nhanh trong trình duyệt có thể bị giới hạn dung lượng bộ nhớ localStorage.</div>
+      <div id="lv911SessionStatus" class="statusBox" style="margin-top:10px"><span class="pill">Chưa sao lưu/phục hồi phiên LV9.11</span></div>
+    </div>
+
+    <div class="card span12">
+      <h2>10J) LV9.11 - Cảnh báo chất lượng model</h2>
+      <div class="compactNote"><b>Mục đích:</b> kiểm tra model đang nạp có phù hợp với dữ liệu mới hay không trước khi dự báo: chữ ký model vận hành, chỉ danh chưa có trong model, dữ liệu dự báo chèn RAM quá nhiều, chu kỳ dữ liệu bất thường, P=0/P lỗi chưa đánh dấu, calibration đang áp dụng.</div>
+      <div class="row" style="margin-top:8px">
+        <button class="good" id="lv911CheckModelQualityBtn">LV9.11 - Kiểm tra chất lượng model</button>
+        <button class="secondary" id="lv911ExportModelQualityBtn" disabled>Xuất model_quality_lv9_11.csv</button>
+      </div>
+      <div id="lv911ModelQualityStatus" class="statusBox" style="margin-top:10px"><span class="pill">Chưa kiểm tra chất lượng model LV9.11</span></div>
+      <div id="lv911ModelQualityTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có kết quả kiểm tra model.</td></tr></tbody></table></div>
+    </div>
+
+    <div class="card span12">
+      <h2>10K) LV9.11 - Mô phỏng kịch bản dự báo</h2>
+      <div class="compactNote"><b>Mục đích:</b> thử nhanh các kịch bản vận hành trên kết quả forecast hiện có mà không làm thay đổi model: tăng/giảm nhiệt độ, tăng/giảm phụ tải %, chuyển tải giả lập, giảm tải/mất điện theo chỉ danh. Kết quả mô phỏng có thể xuất CSV để so sánh.</div>
+      <div class="toolbar" style="margin-top:8px">
+        <div class="span3"><label>Phạm vi mô phỏng</label><select id="lv911ScenarioStation"><option value="__ALL__">Tất cả chỉ danh trong forecast</option></select></div>
+        <div class="span2"><label>Tăng/giảm nhiệt độ °C</label><input id="lv911ScenarioTempDelta" type="number" step="0.1" value="0"></div>
+        <div class="span2"><label>Hệ số %/°C</label><input id="lv911ScenarioTempPctPerDeg" type="number" step="0.1" value="1"></div>
+        <div class="span2"><label>Tăng/giảm phụ tải %</label><input id="lv911ScenarioLoadPct" type="number" step="0.1" value="0"></div>
+        <div class="span3"><label>Giảm tải/mất điện chỉ danh</label><input id="lv911ScenarioOutageStation" placeholder="Để trống nếu không dùng"></div>
+        <div class="span2"><label>Giảm tải %</label><input id="lv911ScenarioOutagePct" type="number" step="1" value="100"></div>
+        <div class="span4"><label>Chuyển tải từ chỉ danh</label><input id="lv911ScenarioTransferFrom" placeholder="Chỉ danh nguồn"></div>
+        <div class="span4"><label>Chuyển tải sang chỉ danh</label><input id="lv911ScenarioTransferTo" placeholder="Chỉ danh nhận"></div>
+        <div class="span2"><label>Công suất chuyển MW</label><input id="lv911ScenarioTransferMw" type="number" step="0.1" value="0"></div>
+        <div class="span12"><label>Thao tác mô phỏng</label><div class="row">
+          <button class="good" id="lv911RunScenarioBtn">LV9.11 - Chạy mô phỏng kịch bản</button>
+          <button class="secondary" id="lv911ExportScenarioBtn" disabled>Xuất scenario_forecast_lv9_11.csv</button>
+          <button class="secondary" id="lv911UseScenarioAsForecastBtn" disabled>Dùng kết quả mô phỏng làm forecast hiện tại</button>
+        </div></div>
+      </div>
+      <div class="compactNote"><b>Gợi ý:</b> chạy dự báo ở Luồng B trước, sau đó quay sang 10K để mô phỏng. Nút <b>Dùng kết quả mô phỏng làm forecast hiện tại</b> chỉ thay forecast trong RAM, không sửa dữ liệu gốc và không sửa model.</div>
+      <div id="lv911ScenarioStatus" class="statusBox" style="margin-top:10px"><span class="pill">Chưa mô phỏng kịch bản LV9.11</span></div>
+      <div id="lv911ScenarioSummary" class="statusBox" style="margin-top:10px"><span class="pill">Chưa có tổng hợp kịch bản</span></div>
+      <div id="lv911ScenarioTable" class="tablewrap smallTable" style="margin-top:8px"><table><tbody><tr><td>Chưa có kết quả mô phỏng.</td></tr></tbody></table></div>
+    </div>
+
 
     <div class="card span12">
       <h2>10D) Đánh giá sai số từ dữ liệu thực tế</h2>

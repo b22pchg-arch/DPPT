@@ -6260,3 +6260,546 @@ setTimeout(() => {
   setTimeout(lv89Bind, 1800);
 })();
 // ====================== END LV8.9 SAFE DASHBOARD + OPERATION LOG ======================
+
+
+// ====================== LV9.11 HTML OFFLINE REPORT EXPORT ======================
+(function(){
+  'use strict';
+  const VERSION = 'LV9.11';
+
+  function $(id){ return document.getElementById(id); }
+  function e(v){ return (typeof escapeHtml === 'function' ? escapeHtml(v) : String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))); }
+  function n(v){ const x = (typeof parseNumber === 'function') ? parseNumber(v) : Number(v); return Number.isFinite(x) ? x : NaN; }
+  function f(v, d=3){ return Number.isFinite(n(v)) ? (typeof formatNum === 'function' ? formatNum(n(v), d) : n(v).toFixed(d)) : ''; }
+  function nowText(){ return new Date().toLocaleString('vi-VN'); }
+  function safeName(s){ return String(s || 'report').replace(/[^a-zA-Z0-9_\-]+/g,'_').slice(0,80) || 'report'; }
+  function status(kind, msg){
+    const box = $('lv99HtmlReportStatus');
+    if (!box) return;
+    const cls = kind === 'ok' ? 'ok' : (kind === 'err' ? 'bad' : (kind === 'warn' ? 'warn' : ''));
+    box.innerHTML = `<span class="pill ${cls}">${e(kind === 'ok' ? 'HOÀN THÀNH' : (kind === 'err' ? 'LỖI' : 'LV9.11'))}</span><span class="pill">${e(msg)}</span>`;
+  }
+
+  function rowsOf(kind){
+    if (kind === 'forecast') return state.forecastRows || [];
+    if (kind === 'summary') return state.lv8?.summaryRows || [];
+    if (kind === 'evalDetail') return state.lv84?.detailRows || [];
+    if (kind === 'evalSummary') return state.lv84?.summaryRows || [];
+    if (kind === 'calibration') return state.lv85?.calibrationRows || state.model?.calibrationLV85?.rows || [];
+    if (kind === 'calCompare') return state.lv89?.compareRows || [];
+    if (kind === 'calCompareDetail') return state.lv89?.compareDetail || [];
+    if (kind === 'oplog') { try { return state.lv89?.operationLog || JSON.parse(localStorage.getItem('scada_load_forecast_lv89_operation_log') || '[]'); } catch(_) { return []; } }
+    return [];
+  }
+
+  function makeHeaders(rows, preferred=[]){
+    const set = new Set();
+    preferred.forEach(h => set.add(h));
+    (rows || []).slice(0, 50).forEach(r => Object.keys(r || {}).forEach(k => set.add(k)));
+    return Array.from(set).filter(Boolean);
+  }
+
+  function htmlTable(rows, headers, title='', limit=10000){
+    rows = rows || [];
+    headers = headers && headers.length ? headers : makeHeaders(rows);
+    const shown = rows.slice(0, limit);
+    if (!shown.length) return `<div class="empty">Chưa có dữ liệu ${e(title)}.</div>`;
+    return `<div class="tableMeta">${e(title)}: hiển thị ${shown.length}/${rows.length} dòng</div><div class="tableWrap"><table><thead><tr>${headers.map(h=>`<th>${e(h)}</th>`).join('')}</tr></thead><tbody>${shown.map(r=>`<tr>${headers.map(h=>`<td>${e(r?.[h] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  }
+
+  function summarizeForecast(rows){
+    const p = (rows||[]).map(r => n(r.forecast_p_mw)).filter(Number.isFinite);
+    const pmax = p.length ? Math.max(...p) : NaN;
+    const pmin = p.length ? Math.min(...p) : NaN;
+    const imax = (rows||[]).find(r => n(r.forecast_p_mw) === pmax);
+    const stCount = new Set((rows||[]).map(r => r.station || '')).size;
+    const warn = (rows||[]).filter(r => String(r.trang_thai_nguong || '').includes('CẢNH')).length;
+    const danger = (rows||[]).filter(r => String(r.trang_thai_nguong || '').includes('NGUY')).length;
+    return {rows:(rows||[]).length, stations:stCount, pmax:f(pmax), pmin:f(pmin), pmaxTime:imax?.time || '', warn, danger};
+  }
+
+  function svgForecastChart(rows, title='Đồ thị P dự báo'){
+    rows = (rows || []).slice(0, 1200);
+    const data = rows.map((r,i) => ({i, t:String(r.time||''), p:n(r.forecast_p_mw)})).filter(r => Number.isFinite(r.p));
+    if (data.length < 2) return '<div class="empty">Chưa đủ dữ liệu để vẽ đồ thị.</div>';
+    const W=1100, H=320, L=70, R=20, T=34, B=54;
+    const minP = Math.min(...data.map(d=>d.p)), maxP = Math.max(...data.map(d=>d.p));
+    const span = Math.max(maxP-minP, 1);
+    const x = idx => L + (W-L-R) * (idx/(data.length-1));
+    const y = p => T + (H-T-B) * (1 - ((p-minP)/span));
+    const path = data.map((d,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(d.p).toFixed(1)}`).join(' ');
+    const ticks = [];
+    const tickN = Math.min(8, data.length);
+    for (let k=0;k<tickN;k++) { const idx = Math.round(k*(data.length-1)/(tickN-1)); ticks.push({x:x(idx), label:data[idx].t.slice(5,16)}); }
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${e(title)}">
+      <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="#0b1220"/>
+      <text x="${L}" y="22" fill="#e5e7eb" font-size="16" font-weight="700">${e(title)}</text>
+      <line x1="${L}" y1="${T}" x2="${L}" y2="${H-B}" stroke="#334155"/>
+      <line x1="${L}" y1="${H-B}" x2="${W-R}" y2="${H-B}" stroke="#334155"/>
+      <text x="12" y="${T+6}" fill="#93c5fd" font-size="12">${e(f(maxP))} MW</text>
+      <text x="12" y="${H-B+4}" fill="#93c5fd" font-size="12">${e(f(minP))} MW</text>
+      ${ticks.map(t=>`<line x1="${t.x.toFixed(1)}" y1="${H-B}" x2="${t.x.toFixed(1)}" y2="${H-B+5}" stroke="#475569"/><text x="${t.x.toFixed(1)}" y="${H-B+22}" fill="#94a3b8" font-size="11" text-anchor="middle">${e(t.label)}</text>`).join('')}
+      <path d="${path}" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+    </svg>`;
+  }
+
+  function section(title, body){ return `<section><h2>${e(title)}</h2>${body}</section>`; }
+  function cards(items){ return `<div class="cards">${items.map(it=>`<div class="kpi"><div>${e(it.label)}</div><b>${e(it.value)}</b></div>`).join('')}</div>`; }
+
+  function buildReport(which){
+    const forecast = rowsOf('forecast');
+    const summary = rowsOf('summary');
+    const evalDetail = rowsOf('evalDetail');
+    const evalSummary = rowsOf('evalSummary');
+    const calRows = rowsOf('calibration');
+    const cmpRows = rowsOf('calCompare');
+    const logRows = rowsOf('oplog');
+    const fs = summarizeForecast(forecast);
+    const evalTotal = evalSummary.find(r => r.level === 'total') || evalSummary[0] || {};
+    const titleMap = {
+      forecast:'Báo cáo kết quả dự báo', summary:'Báo cáo tổng hợp đa cấp', evaluation:'Báo cáo đánh giá sai số dự báo', calibration:'Báo cáo hiệu chỉnh mô hình', all:'Báo cáo tổng hợp dự báo phụ tải SCADA'
+    };
+    const parts = [];
+    parts.push(section('Thông tin chung', cards([
+      {label:'Thời điểm xuất', value:nowText()}, {label:'Phiên bản', value:VERSION}, {label:'File dữ liệu', value:state.sourceFileName || '-'},
+      {label:'Dòng dữ liệu RAM', value:(state.rows||[]).length}, {label:'Model', value:state.model ? (state.model.appVersion || state.model.version || 'Đã nạp') : 'Chưa nạp'}, {label:'Calibration', value:state.model?.calibrationLV85 ? 'Có' : 'Không'}
+    ])));
+    if (which === 'forecast' || which === 'summary' || which === 'all') {
+      parts.push(section('Tóm tắt dự báo', cards([
+        {label:'Số dòng forecast', value:fs.rows}, {label:'Số trạm/lộ', value:fs.stations}, {label:'Pmax', value:fs.pmax + ' MW'},
+        {label:'Giờ Pmax', value:fs.pmaxTime || '-'}, {label:'Pmin', value:fs.pmin + ' MW'}, {label:'Cảnh báo/Nguy hiểm', value:`${fs.warn}/${fs.danger}`}
+      ]) + svgForecastChart(forecast, 'Đường P dự báo')));
+      parts.push(section('Bảng forecast chi tiết', htmlTable(forecast, ['step','time','station','forecast_p_mw','model_used','strategy_method','temp','rain','holiday','calibration_lv85','calibration_mw','nguong_canh_bao','trang_thai_nguong'], 'forecast', 20000)));
+    }
+    if (which === 'summary' || which === 'all') {
+      parts.push(section('Báo cáo đa cấp / Pmax / sản lượng / ca vận hành', htmlTable(summary, (typeof lv8SummaryHeaders === 'function' ? lv8SummaryHeaders() : []), 'forecast summary', 20000)));
+    }
+    if (which === 'evaluation' || which === 'all') {
+      parts.push(section('Tổng hợp đánh giá sai số', cards([
+        {label:'Số mốc khớp', value:state.lv84?.summary?.matched ?? evalDetail.length}, {label:'MAE MW', value:evalTotal.MAE_MW ?? '-'}, {label:'MAPE %', value:evalTotal.MAPE_pct ?? '-'},
+        {label:'RMSE MW', value:evalTotal.RMSE_MW ?? '-'}, {label:'BIAS MW', value:evalTotal.BIAS_MW ?? '-'}, {label:'Kết luận', value:evalTotal.ket_luan ?? '-'}
+      ]) + htmlTable(evalSummary, ['level','group','n','MAE_MW','MAPE_pct','RMSE_MW','BIAS_MW','max_abs_error_mw','max_error_time','ket_luan'], 'evaluation summary', 20000)));
+      parts.push(section('Sai số từng thời điểm', htmlTable(evalDetail, ['time','station','actual_p_mw','forecast_p_mw','error_mw','abs_error_mw','error_pct','ket_luan'], 'evaluation detail', 20000)));
+    }
+    if (which === 'calibration' || which === 'all') {
+      parts.push(section('Hiệu chỉnh mô hình từ sai số', htmlTable(calRows, ['level','group','n','bias_mw','bias_pct','MAE_MW','MAPE_pct','RMSE_MW','max_abs_error_mw','confidence','ket_luan'], 'calibration', 20000)));
+      if (cmpRows.length) parts.push(section('So sánh trước/sau hiệu chỉnh', htmlTable(cmpRows, ['level','group','n','MAE_before','MAE_after','MAPE_before','MAPE_after','RMSE_before','RMSE_after','BIAS_before','BIAS_after','cai_thien_MAE_pct','ket_luan'], 'calibration compare', 20000)));
+    }
+    if (which === 'all') {
+      parts.push(section('Nhật ký thao tác gần nhất', htmlTable(logRows.slice(0,300), ['time','level','action','detail','raw_rows','ram_rows','forecast_rows','quality_issues','operation_events','model_loaded','calibration'], 'operation log', 300)));
+    }
+    return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(titleMap[which] || titleMap.all)}</title><style>
+      :root{color-scheme:dark;--bg:#0b1220;--card:#111c2e;--line:#334155;--text:#e5e7eb;--muted:#9fb0c6;--accent:#38bdf8;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444}
+      body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif} header{padding:20px 26px;border-bottom:1px solid var(--line);background:#0f172a;position:sticky;top:0;z-index:2} h1{margin:0 0 6px;font-size:22px} h2{margin:0 0 12px;font-size:18px;color:#dbeafe} .sub{color:var(--muted)} main{padding:18px;max-width:1600px;margin:auto} section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 14px;box-shadow:0 8px 24px rgba(0,0,0,.18)} .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px}.kpi{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0b1628}.kpi div{color:var(--muted);font-size:12px}.kpi b{font-size:18px;color:#f8fafc}.tableWrap{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:12px}.tableMeta{color:var(--muted);margin:4px 0 8px} table{border-collapse:collapse;width:100%;min-width:900px} th,td{border-bottom:1px solid #26364d;padding:7px 8px;text-align:left;white-space:nowrap} th{position:sticky;top:0;background:#12243a;color:#dbeafe} tr:nth-child(even) td{background:rgba(255,255,255,.025)} .chart{width:100%;height:auto;margin:10px 0;border:1px solid var(--line);border-radius:14px}.empty{color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:12px}.actions{position:fixed;right:18px;bottom:18px;display:flex;gap:8px}.actions button{background:#1d4ed8;color:white;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}@media print{header{position:static}.actions{display:none}section{break-inside:avoid}.tableWrap{max-height:none;overflow:visible}body{background:white;color:#111}section{background:white;color:#111}th{color:#111;background:#e5e7eb}.sub,.kpi div,.tableMeta{color:#444}}
+      </style></head><body><header><h1>${e(titleMap[which] || titleMap.all)}</h1><div class="sub">Báo cáo HTML độc lập, xuất từ SCADA Load Forecast Offline PWA ${e(VERSION)} lúc ${e(nowText())}. Có thể mở offline và in trực tiếp.</div></header><main>${parts.join('\n')}</main><div class="actions"><button onclick="window.print()">In / Lưu PDF</button><button onclick="window.scrollTo({top:0,behavior:'smooth'})">Lên đầu</button></div></body></html>`;
+  }
+
+  function exportHtml(which){
+    const start = Date.now();
+    const html = buildReport(which);
+    const name = {forecast:'forecast_report_lv9_11.html', summary:'forecast_summary_report_lv9_11.html', evaluation:'forecast_evaluation_report_lv9_11.html', calibration:'calibration_report_lv9_11.html', all:'scada_forecast_full_report_lv9_11.html'}[which] || 'scada_report_lv9_11.html';
+    saveTextFile(name, html, 'text/html;charset=utf-8');
+    status('ok', `Đã xuất ${name} lúc ${nowText()}, thời gian ${Date.now()-start} ms.`);
+    if (typeof log === 'function') log(`LV9.11 đã xuất báo cáo HTML: ${name}`);
+  }
+
+  function bind(){
+    const map = {
+      lv99ExportForecastHtmlBtn:'forecast', lv99ExportSummaryHtmlBtn:'summary', lv99ExportEvaluationHtmlBtn:'evaluation', lv99ExportCalibrationHtmlBtn:'calibration', lv99ExportAllHtmlBtn:'all'
+    };
+    Object.entries(map).forEach(([id,which]) => {
+      const el = $(id);
+      if (el && el.dataset.boundLv99 !== '1') {
+        el.dataset.boundLv99 = '1';
+        el.addEventListener('click', () => { try { exportHtml(which); } catch(err) { status('err', err.message); if (typeof log === 'function') log('Lỗi LV9.11 xuất HTML: ' + err.message); } });
+      }
+    });
+    const title = document.querySelector('h1'); if (title) title.textContent = 'SCADA Load Forecast Offline PWA LV9.11';
+    document.title = 'SCADA Load Forecast Offline PWA LV9.11';
+    if ($('versionInfo')) $('versionInfo').innerHTML = '<span class="pill modeBadge">LV9.11</span><span class="pill ok">Xuất báo cáo HTML offline</span>';
+    status('ok', 'Sẵn sàng xuất báo cáo HTML offline.');
+  }
+  setTimeout(bind, 2200);
+})();
+// ====================== END LV9.11 HTML OFFLINE REPORT EXPORT ======================
+
+
+// ====================== LV9.11 OPEN EXPORTED HTML REPORT INSIDE APP ======================
+(function(){
+  'use strict';
+  const VERSION = 'LV9.11';
+  let currentHtml = '';
+  let currentName = '';
+  let currentUrl = '';
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function setStatus(kind, msg){
+    const box = $('lv910HtmlViewerStatus') || $('lv99HtmlReportStatus');
+    if (!box) return;
+    const cls = kind === 'ok' ? 'ok' : (kind === 'err' ? 'bad' : (kind === 'warn' ? 'warn' : ''));
+    box.innerHTML = `<span class="pill ${cls}">${escapeHtml(msg)}</span>`;
+  }
+  function setButtons(enabled){
+    ['lv910OpenHtmlNewTabBtn','lv910PrintHtmlPreviewBtn','lv910CloseHtmlPreviewBtn'].forEach(id => { const el=$(id); if (el) el.disabled = !enabled; });
+  }
+  function showHtml(html, name){
+    const wrap = $('lv910HtmlViewerWrap');
+    const frame = $('lv910HtmlViewer');
+    if (!wrap || !frame) throw new Error('Không tìm thấy khung xem HTML trong giao diện.');
+    currentHtml = String(html || '');
+    currentName = name || 'bao_cao_html.html';
+    if (!currentHtml.trim()) throw new Error('File HTML rỗng hoặc chưa có nội dung báo cáo.');
+    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch(e){} currentUrl = ''; }
+    const blob = new Blob([currentHtml], {type:'text/html;charset=utf-8'});
+    currentUrl = URL.createObjectURL(blob);
+    frame.src = currentUrl;
+    wrap.style.display = 'block';
+    const title = $('lv910HtmlViewerTitle');
+    if (title) title.textContent = `Đang xem: ${currentName}`;
+    setButtons(true);
+    setStatus('ok', `Đã mở ${currentName} trực tiếp trong chương trình.`);
+    const status = $('lv99HtmlReportStatus');
+    if (status) status.innerHTML = `<span class="pill ok">LV9.11 đang mở báo cáo HTML</span><span class="pill">${escapeHtml(currentName)}</span>`;
+    try { if (typeof log === 'function') log(`LV9.11 đã mở báo cáo HTML trong chương trình: ${currentName}`); } catch(e) {}
+  }
+  function readSelectedHtml(){
+    const input = $('lv910HtmlFileInput');
+    const file = input && input.files && input.files[0];
+    if (!file) throw new Error('Chưa chọn file .html/.htm để mở.');
+    if (!/\.html?$/i.test(file.name) && !/html/i.test(file.type || '')) throw new Error('File đã chọn không phải HTML.');
+    const reader = new FileReader();
+    reader.onload = () => showHtml(String(reader.result || ''), file.name);
+    reader.onerror = () => setStatus('err', 'Không đọc được file HTML đã chọn.');
+    reader.readAsText(file, 'utf-8');
+  }
+  function openLastHtml(){
+    const html = window.__lv910LastHtmlReport || currentHtml || '';
+    const name = window.__lv910LastHtmlReportName || currentName || 'bao_cao_vua_xuat.html';
+    if (!html) throw new Error('Chưa có báo cáo vừa xuất trong phiên làm việc này. Hãy xuất báo cáo HTML hoặc chọn file .html đã lưu.');
+    showHtml(html, name);
+  }
+  function openNewTab(){
+    if (!currentHtml) throw new Error('Chưa có báo cáo HTML đang xem.');
+    const blob = new Blob([currentHtml], {type:'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch(e){} }, 60000);
+  }
+  function printPreview(){
+    const frame = $('lv910HtmlViewer');
+    if (!frame || !currentHtml) throw new Error('Chưa có báo cáo HTML đang xem để in.');
+    try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+    catch(e) { openNewTab(); setStatus('warn', 'Trình duyệt chặn in trong khung xem. Đã mở báo cáo trong tab mới để in/lưu PDF.'); }
+  }
+  function closePreview(){
+    const wrap = $('lv910HtmlViewerWrap');
+    const frame = $('lv910HtmlViewer');
+    if (frame) frame.removeAttribute('src');
+    if (wrap) wrap.style.display = 'none';
+    if (currentUrl) { try { URL.revokeObjectURL(currentUrl); } catch(e){} currentUrl = ''; }
+    setButtons(false);
+    setStatus('', 'Đã đóng khung xem HTML. Có thể mở lại báo cáo vừa xuất hoặc chọn file HTML khác.');
+  }
+  function patchSaveTextFile(){
+    if (window.__lv910SaveTextFilePatched) return;
+    if (typeof window.saveTextFile !== 'function') return;
+    const original = window.saveTextFile;
+    window.saveTextFile = function(filename, content, type){
+      try {
+        const name = String(filename || '');
+        const mime = String(type || '');
+        if (/\.html?$/i.test(name) || /text\/html/i.test(mime)) {
+          window.__lv910LastHtmlReport = String(content || '');
+          window.__lv910LastHtmlReportName = name || 'bao_cao_html.html';
+          const box = $('lv99HtmlReportStatus');
+          if (box) box.innerHTML = `<span class="pill ok">Đã tạo báo cáo HTML</span><span class="pill">${escapeHtml(window.__lv910LastHtmlReportName)}</span><span class="pill">Có thể bấm “Xem báo cáo vừa xuất”</span>`;
+        }
+      } catch(e) {}
+      return original.apply(this, arguments);
+    };
+    window.__lv910SaveTextFilePatched = true;
+  }
+  function bind(){
+    patchSaveTextFile();
+    const pairs = [
+      ['lv910OpenHtmlFileBtn', () => readSelectedHtml()],
+      ['lv910OpenLastHtmlBtn', () => openLastHtml()],
+      ['lv910OpenHtmlNewTabBtn', () => openNewTab()],
+      ['lv910PrintHtmlPreviewBtn', () => printPreview()],
+      ['lv910CloseHtmlPreviewBtn', () => closePreview()]
+    ];
+    pairs.forEach(([id, fn]) => {
+      const el = $(id);
+      if (el && el.dataset.boundLv910 !== '1') {
+        el.dataset.boundLv910 = '1';
+        el.addEventListener('click', () => { try { fn(); } catch(err) { setStatus('err', err.message || String(err)); try { if (typeof log === 'function') log('Lỗi LV9.11 mở HTML: ' + (err.message || err)); } catch(e){} } });
+      }
+    });
+    const input = $('lv910HtmlFileInput');
+    if (input && input.dataset.boundLv910 !== '1') {
+      input.dataset.boundLv910 = '1';
+      input.addEventListener('change', () => { if (input.files && input.files[0]) setStatus('', `Đã chọn ${input.files[0].name}. Bấm “Mở HTML đã chọn” để xem trong chương trình.`); });
+    }
+    setButtons(false);
+    const h1 = document.querySelector('h1'); if (h1) h1.textContent = 'SCADA Load Forecast Offline PWA LV9.11';
+    document.title = 'SCADA Load Forecast Offline PWA LV9.11';
+    const vi = $('versionInfo'); if (vi) vi.innerHTML = '<span class="pill modeBadge">LV9.11</span><span class="pill ok">Xuất và mở báo cáo HTML offline trong chương trình</span>';
+    try { if (typeof log === 'function') log('Sẵn sàng LV9.11: có thể xuất và mở/xem lại báo cáo HTML trực tiếp trong chương trình.'); } catch(e) {}
+  }
+  setTimeout(bind, 2600);
+  window.addEventListener('load', () => setTimeout(bind, 800));
+})();
+// ====================== END LV9.11 OPEN EXPORTED HTML REPORT INSIDE APP ======================
+
+// ===== LV9.11: Session backup/restore, model quality warnings, scenario simulation =====
+(function(){
+  const VERSION = 'LV9.11';
+  const SESSION_KEY = 'scada_load_forecast_lv9_11_session_quick';
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function num(v){ try { const x = (typeof parseNumber === 'function') ? parseNumber(v) : Number(v); return Number.isFinite(x) ? x : NaN; } catch(_) { const x=Number(v); return Number.isFinite(x)?x:NaN; } }
+  function fmt(v,d=3){ const x=num(v); return Number.isFinite(x) ? x.toFixed(d) : ''; }
+  function now(){ return new Date().toLocaleString('vi-VN'); }
+  function setBox(id, kind, parts){
+    const box=$(id); if(!box) return;
+    const cls = kind==='err' ? 'bad' : kind==='warn' ? 'warn' : kind==='ok' ? 'ok' : '';
+    box.innerHTML = (parts||[]).map(p=>`<span class="pill ${cls}">${esc(p)}</span>`).join(' ');
+  }
+  function simpleTable(boxId, rows, headers, limit=1000){
+    const box=$(boxId); if(!box) return;
+    rows = rows || [];
+    if(!rows.length){ box.innerHTML = '<table><tbody><tr><td>Không có dữ liệu</td></tr></tbody></table>'; return; }
+    headers = headers && headers.length ? headers : Array.from(new Set(rows.flatMap(r=>Object.keys(r))));
+    const body = rows.slice(0, limit).map(r=>'<tr>'+headers.map(h=>`<td>${esc(r[h])}</td>`).join('')+'</tr>').join('');
+    box.innerHTML = `<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>${rows.length>limit?`<div class="compactNote">Chỉ hiển thị ${limit}/${rows.length} dòng.</div>`:''}`;
+  }
+  function toCsvSafe(rows, headers){
+    if (typeof toCSV === 'function') return toCSV(rows, headers);
+    const escCsv = v => { const s=String(v??''); return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+    return [headers.join(',')].concat((rows||[]).map(r=>headers.map(h=>escCsv(r[h])).join(','))).join('\n');
+  }
+  function unique(arr){ return [...new Set((arr||[]).filter(v=>v!=='' && v!=null).map(String))]; }
+  function stationListFromRows(rows){ return unique((rows||[]).map(r => r.station || r.lv6_chi_danh_du_bao || r.lv6_chi_danh_chuan || r['Trạm/Lộ/Khu vực'] || r['tram_lo'] || r['station'] || 'ALL')).sort(); }
+
+  // ----- Session backup / restore -----
+  function sessionPayload(){
+    let colMap = {};
+    try { colMap = (typeof readMap === 'function') ? readMap() : (state.colMap || {}); } catch(_) { colMap = state.colMap || {}; }
+    return {
+      app:'SCADA_LOAD_FORECAST_SESSION', sessionVersion:VERSION, savedAt:new Date().toISOString(),
+      sourceFileName: state.sourceFileName || '', delimiter: state.delimiter || ',', headers: state.headers || [], rawRows: state.rawRows || [], colMap,
+      forecastRows: state.forecastRows || [], model: state.model || null,
+      trainingResult: state.trainingResult || null,
+      lv7: state.lv7 || null, lv84: state.lv84 || null, lv85: state.lv85 || null, lv89: state.lv89 || null, lv911: state.lv911 || null,
+      editor: {...(state.editor||{}), selected: []},
+      note:'File session LV9.11 dùng để phục hồi phiên làm việc offline. Không dùng thay model vận hành.'
+    };
+  }
+  function exportSession(){
+    const payload = sessionPayload();
+    const name = `session_lv9_11_${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+    saveTextFile(name, JSON.stringify(payload, null, 2), 'application/json');
+    setBox('lv911SessionStatus','ok',[`Đã xuất ${name}`, `${(JSON.stringify(payload).length/1024/1024).toFixed(2)} MB`, now()]);
+    try { log('LV9.11 đã xuất session: '+name); } catch(_){}
+  }
+  function saveQuickSession(){
+    const text = JSON.stringify(sessionPayload());
+    localStorage.setItem(SESSION_KEY, text);
+    setBox('lv911SessionStatus','ok',['Đã lưu nhanh session vào trình duyệt', `${(text.length/1024/1024).toFixed(2)} MB`, now()]);
+  }
+  function restoreSelectsFromMap(colMap){
+    try { fillColumnSelects(state.headers || []); } catch(_) {}
+    const idByKey = {time:'colTime', p:'colP', station:'colStation', temp:'colTemp', rain:'colRain', holiday:'colHoliday', abnormal:'colAbnormal', outage:'colOutage', transfer:'colTransfer'};
+    Object.entries(idByKey).forEach(([k,id]) => { const el=$(id); const v=colMap?.[k]; if(el && v && [...el.options].some(o=>o.value===v)) el.value=v; });
+    try { if (typeof refreshQuickCustomColumns === 'function') refreshQuickCustomColumns(); } catch(_) {}
+  }
+  function restoreSession(payload){
+    if(!payload || payload.app !== 'SCADA_LOAD_FORECAST_SESSION') throw new Error('File không phải session LV9.11 hợp lệ.');
+    state.headers = Array.isArray(payload.headers) ? payload.headers.slice() : [];
+    state.rawRows = Array.isArray(payload.rawRows) ? payload.rawRows.map(r=>({...r})) : [];
+    state.delimiter = payload.delimiter || ',';
+    state.sourceFileName = payload.sourceFileName || 'session_lv9_11';
+    state.model = payload.model || null;
+    state.forecastRows = Array.isArray(payload.forecastRows) ? payload.forecastRows.map(r=>({...r})) : [];
+    state.trainingResult = payload.trainingResult || null;
+    state.lv7 = payload.lv7 || state.lv7 || null;
+    state.lv84 = payload.lv84 || state.lv84 || null;
+    state.lv85 = payload.lv85 || state.lv85 || null;
+    state.lv89 = payload.lv89 || state.lv89 || null;
+    state.lv911 = payload.lv911 || state.lv911 || {};
+    state.editor = Object.assign(state.editor || {}, payload.editor || {});
+    state.editor.selected = new Set(); state.editor.page = 1;
+    restoreSelectsFromMap(payload.colMap || {});
+    try { if (typeof normalizeRows === 'function') normalizeRows(); } catch(e){ try{log('Cần kiểm tra ánh xạ sau khi phục hồi session: '+e.message);}catch(_){} }
+    try { if (typeof applyDataInfo === 'function') applyDataInfo(); } catch(_) {}
+    try { if (typeof previewData === 'function') previewData(); } catch(_) {}
+    try { if (typeof renderEditorTable === 'function') renderEditorTable(); } catch(_) {}
+    try { if (typeof renderModelInfo === 'function') renderModelInfo(); } catch(_) {}
+    try { if (state.forecastRows.length && typeof renderTable === 'function') renderTable(state.forecastRows, Object.keys(state.forecastRows[0]||{}), 3000); } catch(_) {}
+    try { if (typeof lv89RenderDashboard === 'function') lv89RenderDashboard(); } catch(_) {}
+    updateScenarioStationSelect();
+    setBox('lv911SessionStatus','ok',[`Đã phục hồi session ${payload.sessionVersion || ''}`, `${state.rawRows.length} dòng RAM`, `${state.forecastRows.length} dòng forecast`, state.model?'Có model':'Chưa có model', now()]);
+    try { log('LV9.11 đã phục hồi session làm việc.'); } catch(_){}
+  }
+  async function importSession(){
+    const file = $('lv911SessionFile')?.files?.[0]; if(!file) throw new Error('Chưa chọn file session JSON.');
+    const text = await file.text(); restoreSession(JSON.parse(text));
+  }
+  function loadQuickSession(){
+    const text = localStorage.getItem(SESSION_KEY); if(!text) throw new Error('Chưa có session lưu nhanh trong trình duyệt.');
+    restoreSession(JSON.parse(text));
+  }
+  function clearQuickSession(){ localStorage.removeItem(SESSION_KEY); setBox('lv911SessionStatus','warn',['Đã xóa session lưu nhanh trong trình duyệt', now()]); }
+
+  // ----- Model quality warning -----
+  function modelStations(){
+    const m = state.model || {};
+    if (m.modelsByStation) return Object.keys(m.modelsByStation).filter(Boolean);
+    if (m.station) return [m.station];
+    if (m.strategyByStation) return Object.keys(m.strategyByStation).filter(Boolean);
+    return [];
+  }
+  function dataStations(){ return stationListFromRows(state.rows || []); }
+  function modelQualityRows(){
+    const rows=[];
+    const push=(level,code,content,suggest='')=>rows.push({muc_do:level, ma:code, noi_dung:content, goi_y:suggest});
+    if(!state.model){ push('ERROR','NO_MODEL','Chưa nạp model vận hành.','Nạp model ở 10A hoặc huấn luyện/xuất model từ Luồng A.'); return rows; }
+    if(state.model.scadaModelPackage !== 'SCADA_LOAD_FORECAST_OPERATIONAL_MODEL') push('WARN','MODEL_SIGNATURE','Model thiếu chữ ký vận hành chuẩn.','Nên dùng model xuất từ Mục 8/Luồng A.');
+    if(state.model.modelKind && state.model.modelKind !== 'OPERATIONAL_FORECAST_MODEL') push('WARN','MODEL_KIND','modelKind không phải OPERATIONAL_FORECAST_MODEL.','Kiểm tra file model đã nạp.');
+    const ms=modelStations(), ds=dataStations();
+    if(!ms.length) push('WARN','MODEL_STATION_UNKNOWN','Không xác định được danh sách chỉ danh trong model.','Model toàn hệ thống vẫn có thể chạy nhưng khó kiểm tra phạm vi.');
+    if(!ds.length) push('WARN','NO_DATA_STATION','Chưa có dữ liệu RAM hoặc chưa tách/ánh xạ chỉ danh.','Hoàn thành Luồng S trước khi dự báo.');
+    const hasAll = ms.includes('__ALL__');
+    const missing = ds.filter(s => !hasAll && !ms.includes(s));
+    if(missing.length) push('ERROR','STATION_NOT_IN_MODEL',`Có ${missing.length} chỉ danh trong dữ liệu chưa có trong model: ${missing.slice(0,8).join('; ')}${missing.length>8?'...':''}`,'Không nên dự báo các chỉ danh mới. Cần huấn luyện bổ sung và xuất lại model.');
+    else if(ds.length) push('OK','STATION_MATCH','Các chỉ danh dữ liệu hiện tại nằm trong phạm vi model.','Có thể dự báo nếu dữ liệu đã được kiểm tra chất lượng.');
+    const extra = ms.filter(s => s !== '__ALL__' && !ds.includes(s));
+    if(extra.length) push('INFO','MODEL_EXTRA_STATIONS',`Model có ${extra.length} chỉ danh chưa xuất hiện trong dữ liệu đang nạp.`,`Không lỗi; chỉ lưu ý nếu đang dự báo toàn bộ.`);
+    const raw = state.rawRows || [];
+    const gen = raw.filter(r => String(r.du_lieu_du_bao||r.lv82_forecast_source||'').trim()).length;
+    if(raw.length && gen/raw.length > 0.35) push('WARN','MANY_FORECAST_ROWS_IN_RAM',`Dữ liệu RAM có ${(gen/raw.length*100).toFixed(1)}% dòng là dữ liệu dự báo chèn vào RAM.`,`Chỉ nên dùng để dự báo nối tiếp ngắn hạn; không dùng để huấn luyện model thật.`);
+    const zeros = (state.rows||[]).filter(r => Number(r.p)===0 && !r.outage && !r.transfer && !r.abnormal).length;
+    if(zeros) push('WARN','ZERO_P_UNFLAGGED',`Có ${zeros} dòng P=0 chưa có cờ cắt điện/chuyển tải/bất thường.`,`Kiểm tra Mục 5/6/7 trước khi dự báo hoặc huấn luyện.`);
+    const ints = [];
+    for(const st of ds.slice(0,50)){
+      const rr=(state.rows||[]).filter(r=>r.station===st).sort((a,b)=>a.time-b.time);
+      if(rr.length>3){ try { ints.push(detectIntervalMinutes(rr)); } catch(_){} }
+    }
+    const intSet=unique(ints.map(String));
+    if(intSet.length>2) push('WARN','MIXED_INTERVAL',`Phát hiện nhiều chu kỳ dữ liệu khác nhau: ${intSet.join(', ')} phút.`,`Nên kiểm tra mất mốc hoặc trộn dữ liệu 15/30/60 phút.`);
+    else if(intSet.length) push('OK','DATA_INTERVAL',`Chu kỳ dữ liệu ước tính: ${intSet.join(', ')} phút.`, '');
+    if(state.model.calibrationLV85) push('INFO','CALIBRATION_ON','Model đang có hiệu chỉnh sai số LV8.5.','Nên so sánh trước/sau hiệu chỉnh nếu có dữ liệu thực tế mới.');
+    if(!rows.some(r=>r.muc_do==='ERROR'||r.muc_do==='WARN')) push('OK','QUALITY_OK','Chưa phát hiện vấn đề lớn về tương thích model/dữ liệu.','Có thể chạy dự báo.');
+    return rows;
+  }
+  function renderModelQuality(){
+    const rows=modelQualityRows(); state.lv911 = state.lv911 || {}; state.lv911.modelQualityRows = rows;
+    const err=rows.filter(r=>r.muc_do==='ERROR').length, warn=rows.filter(r=>r.muc_do==='WARN').length;
+    setBox('lv911ModelQualityStatus', err?'err':warn?'warn':'ok',[`Kiểm tra xong: ${err} lỗi, ${warn} cảnh báo`, `Tổng ${rows.length} mục`, now()]);
+    simpleTable('lv911ModelQualityTable', rows, ['muc_do','ma','noi_dung','goi_y'], 500);
+    const btn=$('lv911ExportModelQualityBtn'); if(btn) btn.disabled = !rows.length;
+  }
+  function exportModelQuality(){
+    const rows=state.lv911?.modelQualityRows || modelQualityRows();
+    saveTextFile('model_quality_lv9_11.csv', toCsvSafe(rows, ['muc_do','ma','noi_dung','goi_y']), 'text/csv;charset=utf-8');
+  }
+
+  // ----- Scenario simulation -----
+  function updateScenarioStationSelect(){
+    const sel=$('lv911ScenarioStation'); if(!sel) return;
+    const old=sel.value || '__ALL__';
+    const sts=stationListFromRows((state.forecastRows&&state.forecastRows.length)?state.forecastRows:(state.rows||[]));
+    sel.innerHTML='<option value="__ALL__">Tất cả chỉ danh trong forecast</option>'+sts.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    if([...sel.options].some(o=>o.value===old)) sel.value=old;
+  }
+  function scenarioSummary(rows){
+    if(!rows.length) return [];
+    const vals=rows.map(r=>num(r.scenario_p_mw)).filter(Number.isFinite);
+    const base=rows.map(r=>num(r.base_p_mw)).filter(Number.isFinite);
+    const pmax=Math.max(...vals), pmin=Math.min(...vals), avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+    const baseAvg=base.length?base.reduce((a,b)=>a+b,0)/base.length:NaN;
+    const pmaxRow=rows.find(r=>num(r.scenario_p_mw)===pmax) || {};
+    return [
+      {chi_tieu:'Số dòng mô phỏng', gia_tri:rows.length},
+      {chi_tieu:'Pmax kịch bản MW', gia_tri:fmt(pmax,3)},
+      {chi_tieu:'Thời điểm Pmax', gia_tri:pmaxRow.time||''},
+      {chi_tieu:'Pmin kịch bản MW', gia_tri:fmt(pmin,3)},
+      {chi_tieu:'Ptb kịch bản MW', gia_tri:fmt(avg,3)},
+      {chi_tieu:'Ptb nền MW', gia_tri:fmt(baseAvg,3)},
+      {chi_tieu:'Chênh lệch Ptb MW', gia_tri:fmt(avg-baseAvg,3)}
+    ];
+  }
+  function runScenario(){
+    updateScenarioStationSelect();
+    if(!state.forecastRows || !state.forecastRows.length){
+      try { if(typeof lv8QuickForecast === 'function') lv8QuickForecast({skipSummary:true}); } catch(e) { /* ignore */ }
+    }
+    const forecast = state.forecastRows || [];
+    if(!forecast.length) throw new Error('Chưa có forecast để mô phỏng. Hãy chạy dự báo ở Luồng B trước.');
+    const st=$('lv911ScenarioStation')?.value || '__ALL__';
+    const tempDelta=num($('lv911ScenarioTempDelta')?.value)||0;
+    const tempPct=num($('lv911ScenarioTempPctPerDeg')?.value)||0;
+    const loadPct=num($('lv911ScenarioLoadPct')?.value)||0;
+    const outageSt=String($('lv911ScenarioOutageStation')?.value||'').trim();
+    const outagePct=Math.max(0, Math.min(100, num($('lv911ScenarioOutagePct')?.value)||0));
+    const from=String($('lv911ScenarioTransferFrom')?.value||'').trim();
+    const to=String($('lv911ScenarioTransferTo')?.value||'').trim();
+    const transferMw=Math.max(0, num($('lv911ScenarioTransferMw')?.value)||0);
+    let rows=forecast.filter(r=>st==='__ALL__' || String(r.station||'')===st).map(r=>{
+      const base=num(r.forecast_p_mw); let p=base; const notes=[];
+      if(Number.isFinite(p)){
+        if(tempDelta && tempPct){ const pct=tempDelta*tempPct; p *= (1+pct/100); notes.push(`nhiệt ${tempDelta}°C x ${tempPct}%/°C`); }
+        if(loadPct){ p *= (1+loadPct/100); notes.push(`phụ tải ${loadPct}%`); }
+        if(outageSt && String(r.station||'')===outageSt){ p *= Math.max(0, 1-outagePct/100); notes.push(`giảm tải ${outagePct}%`); }
+      }
+      return {...r, base_p_mw:fmt(base,3), scenario_p_mw:fmt(Math.max(0,p),3), scenario_delta_mw:fmt(Math.max(0,p)-base,3), scenario_note:notes.join('; ')};
+    });
+    if(transferMw && from && to){
+      const byTime = new Map(); rows.forEach((r,i)=>{ const key=String(r.time||''); if(!byTime.has(key)) byTime.set(key,[]); byTime.get(key).push(i); });
+      byTime.forEach(indices=>{
+        const src=indices.find(i=>String(rows[i].station||'')===from); const dst=indices.find(i=>String(rows[i].station||'')===to);
+        if(src!=null){ const p=num(rows[src].scenario_p_mw); rows[src].scenario_p_mw=fmt(Math.max(0,p-transferMw),3); rows[src].scenario_delta_mw=fmt(num(rows[src].scenario_p_mw)-num(rows[src].base_p_mw),3); rows[src].scenario_note=(rows[src].scenario_note?rows[src].scenario_note+'; ':'')+`chuyển -${transferMw} MW sang ${to}`; }
+        if(dst!=null){ const p=num(rows[dst].scenario_p_mw); rows[dst].scenario_p_mw=fmt(p+transferMw,3); rows[dst].scenario_delta_mw=fmt(num(rows[dst].scenario_p_mw)-num(rows[dst].base_p_mw),3); rows[dst].scenario_note=(rows[dst].scenario_note?rows[dst].scenario_note+'; ':'')+`nhận +${transferMw} MW từ ${from}`; }
+      });
+    }
+    state.lv911 = state.lv911 || {}; state.lv911.scenarioRows = rows; state.lv911.scenarioSummary = scenarioSummary(rows);
+    setBox('lv911ScenarioStatus','ok',[`Đã mô phỏng ${rows.length} dòng`, `Phạm vi: ${st==='__ALL__'?'Tất cả':st}`, now()]);
+    simpleTable('lv911ScenarioTable', rows, ['time','station','base_p_mw','scenario_p_mw','scenario_delta_mw','scenario_note','model_used','trang_thai_nguong'], 3000);
+    simpleTable('lv911ScenarioSummary', state.lv911.scenarioSummary, ['chi_tieu','gia_tri'], 100);
+    const ex=$('lv911ExportScenarioBtn'), use=$('lv911UseScenarioAsForecastBtn'); if(ex) ex.disabled=!rows.length; if(use) use.disabled=!rows.length;
+    try { log(`LV9.11 đã mô phỏng kịch bản: ${rows.length} dòng.`); } catch(_){}
+  }
+  function exportScenario(){
+    const rows=state.lv911?.scenarioRows || []; if(!rows.length) throw new Error('Chưa có kết quả mô phỏng.');
+    const headers=['step','time','station','base_p_mw','scenario_p_mw','scenario_delta_mw','scenario_note','model_used','strategy_method','temp','rain','holiday','nguong_canh_bao','trang_thai_nguong'];
+    saveTextFile('scenario_forecast_lv9_11.csv', toCsvSafe(rows, headers), 'text/csv;charset=utf-8');
+  }
+  function useScenarioAsForecast(){
+    const rows=state.lv911?.scenarioRows || []; if(!rows.length) throw new Error('Chưa có kết quả mô phỏng.');
+    state.forecastRows = rows.map(r=>({...r, forecast_p_mw:r.scenario_p_mw, forecast_before_scenario_mw:r.base_p_mw, scenario_applied_lv911:1}));
+    try { if(typeof applyThresholdsToForecast === 'function') applyThresholdsToForecast(state.forecastRows); } catch(_){}
+    try { if(typeof renderTable === 'function') renderTable(state.forecastRows, Object.keys(state.forecastRows[0]||{}), 3000); } catch(_){}
+    setBox('lv911ScenarioStatus','ok',[`Đã dùng ${rows.length} dòng mô phỏng làm forecast hiện tại`, 'Không sửa model/dữ liệu gốc', now()]);
+  }
+
+  function bind(){
+    const bindClick=(id,fn)=>{ const el=$(id); if(el && el.dataset.boundLv911!=='1'){ el.dataset.boundLv911='1'; el.addEventListener('click', async()=>{ try{ await fn(); } catch(e){ const msg=e.message||String(e); setBox(id.includes('Session')?'lv911SessionStatus':id.includes('ModelQuality')?'lv911ModelQualityStatus':'lv911ScenarioStatus','err',['Lỗi: '+msg, now()]); try{log('Lỗi LV9.11: '+msg);}catch(_){} } }); } };
+    bindClick('lv911ExportSessionBtn', exportSession);
+    bindClick('lv911ImportSessionBtn', importSession);
+    bindClick('lv911SaveBrowserSessionBtn', saveQuickSession);
+    bindClick('lv911LoadBrowserSessionBtn', loadQuickSession);
+    bindClick('lv911ClearBrowserSessionBtn', clearQuickSession);
+    bindClick('lv911CheckModelQualityBtn', renderModelQuality);
+    bindClick('lv911ExportModelQualityBtn', exportModelQuality);
+    bindClick('lv911RunScenarioBtn', runScenario);
+    bindClick('lv911ExportScenarioBtn', exportScenario);
+    bindClick('lv911UseScenarioAsForecastBtn', useScenarioAsForecast);
+    updateScenarioStationSelect();
+    setBox('lv911SessionStatus','ok',['Sẵn sàng sao lưu/phục hồi phiên LV9.11']);
+    setBox('lv911ModelQualityStatus','ok',['Sẵn sàng kiểm tra chất lượng model LV9.11']);
+    setBox('lv911ScenarioStatus','ok',['Sẵn sàng mô phỏng kịch bản LV9.11']);
+  }
+  window.lv911UpdateScenarioStationSelect = updateScenarioStationSelect;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else setTimeout(bind, 0);
+})();
+// ===== END LV9.11 =====

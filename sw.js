@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scada-load-forecast-pwa-lv9_8_1-20260612-01';
+const CACHE_NAME = 'scada-load-forecast-pwa-lv9_11-20260613-01';
 const APP_ASSETS = [
   './',
   './index.html',

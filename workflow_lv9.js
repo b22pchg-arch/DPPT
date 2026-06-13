@@ -1,9 +1,9 @@
-/* SCADA Load Forecast Offline PWA LV9.8.1 - B2 Forecast Buttons Fix / Workbench
+/* SCADA Load Forecast Offline PWA LV9.11 - B2 Forecast Buttons Fix / Workbench
    Chỉ điều khiển HIỂN THỊ, không khóa nút, không thay đổi lõi tính toán LV8.9. */
 (function(){
   'use strict';
-  const VERSION = 'LV9.8.1';
-  const STORAGE_KEY = 'scadaLoadForecast.lv9_7.workflowState';
+  const VERSION = 'LV9.11';
+  const STORAGE_KEY = 'scadaLoadForecast.lv9_10.workflowState';
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -179,6 +179,10 @@
       else if (/10E\) Hiệu chỉnh mô hình/.test(t)) by.calibration = c;
       else if (/10F\) So sánh trước\/sau/.test(t)) by.calCompare = c;
       else if (/10G\) Ngưỡng cảnh báo/.test(t)) by.thresholds = c;
+      else if (/10H\).*HTML/i.test(t)) by.htmlReport = c;
+      else if (/10I\).*Sao lưu/i.test(t)) by.session = c;
+      else if (/10J\).*Cảnh báo chất lượng model/i.test(t)) by.modelQuality = c;
+      else if (/10K\).*Mô phỏng kịch bản/i.test(t)) by.scenario = c;
       else if (/10\) Dùng model/.test(t)) by.scada = c;
       else if (/Kết quả/.test(t)) by.results = c;
       else if (/Bảng dữ liệu chuẩn hóa/.test(t)) by.table = c;
@@ -188,7 +192,7 @@
 
   const FLOWS = {
     HOME: {
-      name: 'Chọn luồng công việc', badge: 'WORKFLOW', hint: 'LV9.8.1 sửa B1/B2 không bị ẩn Mục 10B: B2 hiển thị cả khung Dự báo nhanh 10B và khung Dự báo đa cấp 10C1. Chọn A tạo model, S chuẩn bị chung, B dự báo, C đánh giá/hiệu chỉnh.',
+      name: 'Chọn luồng công việc', badge: 'WORKFLOW', hint: 'LV9.11 bổ sung sao lưu/phục hồi session, cảnh báo chất lượng model và mô phỏng kịch bản. Chọn A tạo model, S chuẩn bị chung, B dự báo/mô phỏng, C đánh giá/hiệu chỉnh.',
       steps: [{id:'HOME', label:'Chọn luồng', cards:['dashboard'], primary:null, help:'Chọn Luồng A, S, B hoặc C. Khuyến nghị: A tạo model; S chuẩn bị dữ liệu/model; B dự báo; C đánh giá sai số và hiệu chỉnh.'}]
     },
     A: {
@@ -214,19 +218,20 @@
         {id:'S1', label:'Nạp dữ liệu', cards:['load'], primary:'csvFile', help:'Nạp dữ liệu vận hành mới, dữ liệu thực tế sau vận hành hoặc dữ liệu cần dự báo. Dữ liệu được phép khác file đã huấn luyện nhưng cần cùng cấu trúc và đơn vị.'},
         {id:'S2', label:'Ánh xạ cột', cards:['map','load'], primary:'applyMapBtn', help:'Ánh xạ thời gian, P, chỉ danh, nhiệt độ và các cờ vận hành. Sau khi bấm áp dụng, dữ liệu sẽ vào RAM.'},
         {id:'S3', label:'Tách chỉ danh', cards:['designation','table'], primary:'parseDesignationBtn', help:'Tách chỉ danh Đơn vị/Trạm/Lộ/Lộ nối vòng. Nếu file đã có cột LV6 thì vẫn có thể kiểm tra lại.'},
-        {id:'S4', label:'Nạp model vận hành', cards:['modelImport','dashboard'], primary:'modelFile', help:'Nạp model vận hành xuất từ Luồng A. Model dùng được cho dữ liệu mới nếu cùng phạm vi chỉ danh đã học.'},
-        {id:'S5', label:'Kiểm tra sẵn sàng', cards:['dashboard','table'], primary:null, help:'Kiểm tra nhanh dữ liệu RAM, số chỉ danh, model và calibration. Sau đó chọn Luồng B để dự báo hoặc Luồng C để đánh giá/hiệu chỉnh.'}
+        {id:'S4', label:'Nạp model vận hành', cards:['modelImport','modelQuality','dashboard'], primary:'modelFile', help:'Nạp model vận hành xuất từ Luồng A. Model dùng được cho dữ liệu mới nếu cùng phạm vi chỉ danh đã học.'},
+        {id:'S5', label:'Kiểm tra sẵn sàng', cards:['dashboard','modelQuality','table','session'], primary:null, help:'Kiểm tra nhanh dữ liệu RAM, số chỉ danh, model và calibration. Sau đó chọn Luồng B để dự báo hoặc Luồng C để đánh giá/hiệu chỉnh.'}
       ]
     },
     B: {
       name: 'Luồng B - Dự báo vận hành', badge: 'Dự báo', hint: 'Chỉ tập trung dự báo. Các bước nạp dữ liệu, ánh xạ, tách chỉ danh và nạp model đã chuyển sang Luồng S dùng chung.',
       steps: [
-        {id:'B0', label:'Sẵn sàng dự báo', cards:['dashboard','modelImport'], primary:null, help:'Dùng sau khi đã hoàn thành Luồng S. Kiểm tra model, dữ liệu RAM và phạm vi chỉ danh trước khi dự báo.'},
+        {id:'B0', label:'Sẵn sàng dự báo', cards:['dashboard','modelImport','modelQuality'], primary:null, help:'Dùng sau khi đã hoàn thành Luồng S. Kiểm tra model, dữ liệu RAM và phạm vi chỉ danh trước khi dự báo.'},
         {id:'B1', label:'Dự báo nhanh', cards:['forecastBasic','results','table'], primary:'forecastAllBtn', help:'Chọn trạm/lộ hoặc tất cả, số bước dự báo và chiến lược; bấm dự báo nhanh.'},
         {id:'B2', label:'Chạy dự báo / tạo báo cáo LV8.5', cards:['forecastBasic','forecastRun','results','table'], primary:'lv8QuickForecastBtn', help:'B1/B2 hiển thị đúng 10B và 10C1: có thể dùng Dự báo trạm/lộ đang chọn, Dự báo tất cả trạm/lộ, hoặc Dự báo/Tạo báo cáo đa cấp LV8.5. Bảng kết quả và biểu đồ sẽ nằm ngay trong bước này.'},
         {id:'B3', label:'Xem kết quả, Pmax, cảnh báo', cards:['forecastReview','thresholds','results'], primary:null, help:'B3 chỉ dùng để xem kết quả sau B2: Pmax, giờ Pmax, MWh, phụ tải theo ca và cảnh báo theo ngưỡng. Không cập nhật RAM ở bước này.'},
         {id:'B4', label:'Cập nhật RAM và dự báo tiếp', cards:['forecastAppend','forecastRun','table'], primary:'lv82AppendForecastBtn', help:'B4 cập nhật forecast vào dữ liệu RAM. Sau khi cập nhật xong, dùng lại các nút B2 để dự báo tiếp từ dữ liệu RAM đã bổ sung.'},
-        {id:'B5', label:'Xuất forecast_summary', cards:['forecastExport','forecastReview','dashboard'], primary:'lv8ExportSummaryBtn', help:'B5 chỉ dùng để xuất forecast_summary_lv8_5.csv và kiểm tra tổng hợp cuối cùng. Nếu cần đánh giá sau vận hành, chuyển sang Luồng C.'}
+        {id:'B5', label:'Xuất báo cáo', cards:['forecastExport','forecastReview','htmlReport','session','dashboard'], primary:'lv8ExportSummaryBtn', help:'B5 dùng để xuất forecast_summary_lv8_5.csv, báo cáo HTML và sao lưu session nếu cần. Nếu cần đánh giá sau vận hành, chuyển sang Luồng C.'},
+        {id:'B6', label:'Mô phỏng kịch bản', cards:['scenario','results','forecastReview'], primary:'lv911RunScenarioBtn', help:'Mô phỏng tăng nhiệt độ, tăng phụ tải, chuyển tải hoặc giảm tải/mất điện trên forecast hiện có. Không sửa model và không sửa dữ liệu gốc.'}
       ]
     },
     C: {
@@ -238,7 +243,7 @@
         {id:'C3', label:'Tạo hiệu chỉnh', cards:['calibration'], primary:'lv85BuildCalibrationBtn', help:'Tạo bảng bias MW/% theo toàn hệ thống, chỉ danh, giờ, loại ngày hoặc chỉ danh+giờ.'},
         {id:'C4', label:'Áp dụng hiệu chỉnh', cards:['calibration'], primary:'lv85ApplyCalibrationBtn', help:'Áp dụng bảng hiệu chỉnh vào model đang nạp. Dự báo sau sẽ có cột forecast_before_calibration_mw.'},
         {id:'C5', label:'So sánh trước/sau', cards:['calCompare','results'], primary:'lv89CompareCalibrationBtn', help:'So sánh sai số trước/sau hiệu chỉnh để quyết định có nên dùng model đã hiệu chỉnh không.'},
-        {id:'C6', label:'Xuất model/hồ sơ hiệu chỉnh', cards:['calibration','dashboard','oplog'], primary:'lv85ExportModelBtn', help:'Xuất calibration, model đã hiệu chỉnh, báo cáo sai số, nhật ký thao tác và trạng thái dashboard.'}
+        {id:'C6', label:'Xuất model/hồ sơ hiệu chỉnh', cards:['calibration','htmlReport','session','modelQuality','dashboard','oplog'], primary:'lv85ExportModelBtn', help:'Xuất calibration, model đã hiệu chỉnh, báo cáo sai số, báo cáo HTML, nhật ký thao tác và trạng thái dashboard.'}
       ]
     }
   };
@@ -258,7 +263,7 @@
     shell.innerHTML = `
       <div class="lv9-topline">
         <div>
-          <h2>LV9.8.1) Workflow / Workbench - sửa B1/B1 hiển thị 10B, B2 vẫn có 10B</h2>
+          <h2>LV9.11) Workflow / Workbench - Session, chất lượng model, mô phỏng kịch bản</h2>
           <div class="compactNote">Mặc định <b>chỉ hiện một bước đang thao tác</b>. Các mục không thuộc bước hiện tại sẽ được ẩn hoàn toàn để tăng không gian làm việc. Không khóa nút, không thay đổi lõi tính toán.</div>
         </div>
         <div class="lv9-mode-actions">
@@ -267,7 +272,7 @@
         </div>
       </div>
       <div class="lv93-compactbar" id="lv93CompactBar">
-        <span class="lv93-title">LV9.8.1</span>
+        <span class="lv93-title">LV9.11</span>
         <select id="lv93FlowSelect" title="Chọn luồng"></select>
         <select id="lv93StepSelect" title="Chọn bước"></select>
         <button class="secondary" id="lv93PrevBtn">←</button>
@@ -284,7 +289,7 @@
         <div class="lv9-current">
           <div class="lv9-status" id="lv9StatusBox"></div>
           <div class="lv9-help" id="lv9HelpBox"></div>
-          <div class="lv92-true-note" id="lv92TrueNote">LV9.8.1: B1 hiển thị 10B, B2 vẫn có 10B luôn hiện cả biểu đồ và bảng kết quả; dự báo tất cả trạm/lộ có bảng tổng hợp đầy đủ.</div>
+          <div class="lv92-true-note" id="lv92TrueNote">LV9.11: thêm 10I sao lưu/phục hồi session, 10J cảnh báo chất lượng model, 10K mô phỏng kịch bản; không khóa nút và không thay đổi lõi tính toán.</div>
           <div class="lv9-navrow" style="margin-top:8px">
             <button class="secondary" id="lv9PrevBtn">← Quay lại</button>
             <button class="good" id="lv9PrimaryBtn">Thực hiện chính</button>
@@ -294,7 +299,7 @@
         </div>
       </div>
       <div class="lv9-sidepanel" id="lv9SidePanel" style="display:none">
-        <div class="statusBox"><span class="pill modeBadge">Ngăn phụ LV9.8.1</span><span class="pill">Chỉ để xem nhanh, không can thiệp chức năng</span></div>
+        <div class="statusBox"><span class="pill modeBadge">Ngăn phụ LV9.11</span><span class="pill">Chỉ để xem nhanh, không can thiệp chức năng</span></div>
         <div class="row" style="margin-top:8px">
           <button class="secondary" data-lv9-jump="dashboard">Mở Dashboard</button>
           <button class="secondary" data-lv9-jump="oplog">Mở Nhật ký</button>
@@ -429,15 +434,15 @@
   }
 
   function markVersion(){
-    const h1 = document.querySelector('h1'); if (h1) h1.textContent = 'SCADA Load Forecast Offline PWA LV9.8.1';
-    document.title = 'SCADA Load Forecast Offline PWA LV9.8.1';
-    const vi = $('versionInfo'); if (vi) vi.innerHTML = '<span class="pill modeBadge">LV9.8.1</span><span class="pill ok">B1/B2 không ẩn 10B: đủ nút dự báo</span>';
-    const cfg = $('configName'); if (cfg && /LV[0-9]/i.test(cfg.value)) cfg.value = 'SCADA_LOAD_FORECAST_LV9_7';
+    const h1 = document.querySelector('h1'); if (h1) h1.textContent = 'SCADA Load Forecast Offline PWA LV9.11';
+    document.title = 'SCADA Load Forecast Offline PWA LV9.11';
+    const vi = $('versionInfo'); if (vi) vi.innerHTML = '<span class="pill modeBadge">LV9.11</span><span class="pill ok">Session, cảnh báo model, mô phỏng kịch bản</span>';
+    const cfg = $('configName'); if (cfg && /LV[0-9]/i.test(cfg.value)) cfg.value = 'SCADA_LOAD_FORECAST_LV9_11';
   }
 
   function init(){
     ensureStyle(); createShell(); loadState(); wire(); markVersion(); applyWorkflow();
-    try { if (window.log) window.log('Sẵn sàng LV9.8.1: B1 đã hiển thị lại 10B cùng 10C1, không còn mất nút dự báo trạm/lộ và dự báo tất cả trạm/lộ.'); } catch(_){}
+    try { if (window.log) window.log('Sẵn sàng LV9.11: Bổ sung 10I sao lưu session, 10J cảnh báo chất lượng model và 10K mô phỏng kịch bản.'); } catch(_){}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

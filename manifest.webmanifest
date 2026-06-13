@@ -1,7 +1,7 @@
 {
-  "name": "SCADA Load Forecast Offline PWA LV9.8.1",
+  "name": "SCADA Load Forecast Offline PWA LV9.11",
   "short_name": "LoadForecast",
-  "description": "Dự báo phụ tải SCADA offline LV9.8.1: Workflow Workbench sửa B1 không ẩn Mục 10B, hiển thị đủ nút dự báo nhanh và dự báo đa cấp, giữ lõi ổn định LV8.9, dự báo đa cấp, đánh giá sai số, hiệu chỉnh model và PWA offline.",
+  "description": "Dự báo phụ tải SCADA offline LV9.11: Workflow Workbench, báo cáo HTML, sao lưu/phục hồi session, cảnh báo chất lượng model, mô phỏng kịch bản, dự báo đa cấp, đánh giá sai số, hiệu chỉnh model và PWA offline.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b1220",
